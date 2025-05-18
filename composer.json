@@ -1,0 +1,28 @@
+{
+    "name": "rajpurohithitesh/amazon-paapi5-php-sdk",
+    "description": "Amazon Product Advertising API v5 PHP SDK (Most Advance SDK)",
+    "type": "library",
+    "require": {
+        "php": ">=7.4",
+        "guzzlehttp/guzzle": "^7.0",
+        "ext-curl": "*"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^9.5"
+    },
+    "suggest": {
+        "psr/cache": "^1.0 for using external PSR-6 cache implementations like Redis or Memcached"
+    },
+    "autoload": {
+        "psr-4": {
+            "AmazonPaapi5\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "AmazonPaapi5\\Tests\\": "tests/"
+        }
+    },
+    "license": "Apache-2.0",
+    "minimum-stability": "stable"
+}
