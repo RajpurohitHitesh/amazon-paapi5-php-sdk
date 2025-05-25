@@ -1,6 +1,6 @@
 # Amazon Product Advertising API 5.0 PHP SDK
 
-![Static Badge](https://img.shields.io/badge/PHP-7.4%2B-purple)
+![Static Badge](https://img.shields.io/badge/PHP-8.0%2B-purple)
 [![Amazon API](https://img.shields.io/badge/Amazon%20API-5.0-%23FD9B15)](https://webservices.amazon.com/paapi5/documentation/)
 [![Version](https://img.shields.io/packagist/v/rajpurohithitesh/amazon-paapi5-php-sdk)](https://img.shields.io/packagist/v/rajpurohithitesh/amazon-paapi5-php-sdk)
 [![Total Downloads](https://img.shields.io/packagist/dt/rajpurohithitesh/amazon-paapi5-php-sdk.svg?style=flat)](https://packagist.org/packages/rajpurohithitesh/amazon-paapi5-php-sdk)
