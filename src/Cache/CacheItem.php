@@ -58,7 +58,7 @@ class CacheItem implements CacheItemInterface
     /**
      * @return $this
      */
-    public function expiresAt(?\DateTimeInterface $expiration)
+    public function expiresAt($expiration)  // Remove the nullable type hint
     {
         $this->expiry = $expiration;
         return $this;
