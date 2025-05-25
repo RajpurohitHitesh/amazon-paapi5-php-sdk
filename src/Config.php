@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace AmazonPaapi5;
 
+use AmazonPaapi5\Exceptions\ConfigException;
+
 class Config
 {
     private array $config;
@@ -16,6 +18,10 @@ class Config
         'encryption_key'
     ];
 
+    /**
+     * @param array<string, mixed> $config
+     * @throws ConfigException
+     */
     public function __construct(array $config)
     {
         $this->validateConfig($config);
@@ -27,11 +33,15 @@ class Config
         ], $config);
     }
 
+    /**
+     * @param array<string, mixed> $config
+     * @throws ConfigException
+     */
     private function validateConfig(array $config): void
     {
         foreach (self::$requiredFields as $field) {
-            if (!isset($config[$field])) {
-                throw new \InvalidArgumentException("Missing required config field: {$field}");
+            if (!isset($config[$field]) || empty($config[$field])) {
+                throw new ConfigException("Missing or empty required config field: {$field}");
             }
         }
     }
@@ -73,16 +83,16 @@ class Config
 
     public function getCacheTtl(): int
     {
-        return $this->config['cache_ttl'];
+        return (int) $this->config['cache_ttl'];
     }
 
     public function getThrottleDelay(): float
     {
-        return $this->config['throttle_delay'];
+        return (float) $this->config['throttle_delay'];
     }
 
     public function getMaxRetries(): int
     {
-        return $this->config['max_retries'];
+        return (int) $this->config['max_retries'];
     }
 }
