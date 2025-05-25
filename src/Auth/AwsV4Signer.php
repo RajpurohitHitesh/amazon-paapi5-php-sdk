@@ -4,14 +4,15 @@ declare(strict_types=1);
 
 namespace AmazonPaapi5\Auth;
 
-use GuzzleHttp\Psr7\Request;
 use Psr\Http\Message\RequestInterface;
+use AmazonPaapi5\Request;
 
 class AwsV4Signer
 {
     private string $accessKey;
     private string $secretKey;
     private string $region;
+    private string $service = 'ProductAdvertisingAPI';
 
     public function __construct(string $accessKey, string $secretKey, string $region)
     {
@@ -20,10 +21,12 @@ class AwsV4Signer
         $this->region = $region;
     }
 
-    public function signRequest(PsrRequestInterface $request): PsrRequestInterface
+    public function signRequest(RequestInterface $request): RequestInterface
     {
         $timestamp = gmdate('Ymd\THis\Z');
         $date = gmdate('Ymd');
+        $payload = (string)$request->getBody();
+        $path = $request->getUri()->getPath();
 
         $headers = [
             'content-encoding' => 'amz-1.0',
@@ -39,7 +42,7 @@ class AwsV4Signer
 
         $headers['Authorization'] = $this->buildAuthorizationHeader($timestamp, $date, $signature);
 
-        return $request(
+        return new Request(
             $request->getMethod(),
             $request->getUri(),
             $headers,
