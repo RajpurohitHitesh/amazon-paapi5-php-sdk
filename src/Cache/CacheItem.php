@@ -97,21 +97,23 @@ if (PHP_VERSION_ID >= 80000) {
         /**
          * @return mixed
          */
+        #[\ReturnTypeWillChange]
         public function get()
         {
             return $this->value;
         }
 
-        public function isHit(): bool
+        public function isHit(): bool 
         {
             return $this->hit;
         }
 
         /**
          * @param mixed $value
-         * @return CacheItemInterface
+         * @return self
          */
-        public function set($value): CacheItemInterface
+        #[\ReturnTypeWillChange]
+        public function set($value)
         {
             $this->value = $value;
             $this->hit = true;
@@ -119,9 +121,11 @@ if (PHP_VERSION_ID >= 80000) {
         }
 
         /**
-         * @return CacheItemInterface
+         * @param \DateTimeInterface|null $expiration
+         * @return self
          */
-        public function expiresAt($expiration): CacheItemInterface
+        #[\ReturnTypeWillChange]
+        public function expiresAt($expiration)
         {
             $this->expiry = $expiration;
             return $this;
@@ -129,9 +133,10 @@ if (PHP_VERSION_ID >= 80000) {
 
         /**
          * @param \DateInterval|int|null $time
-         * @return CacheItemInterface
+         * @return self
          */
-        public function expiresAfter($time): CacheItemInterface
+        #[\ReturnTypeWillChange]
+        public function expiresAfter($time)
         {
             if ($time === null) {
                 $this->expiry = null;
