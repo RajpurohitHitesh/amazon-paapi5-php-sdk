@@ -109,9 +109,9 @@ if (PHP_VERSION_ID >= 80000) {
 
         /**
          * @param mixed $value
-         * @return $this
+         * @return CacheItemInterface
          */
-        public function set($value)
+        public function set($value): CacheItemInterface
         {
             $this->value = $value;
             $this->hit = true;
@@ -119,9 +119,9 @@ if (PHP_VERSION_ID >= 80000) {
         }
 
         /**
-         * @return $this
+         * @return CacheItemInterface
          */
-        public function expiresAt($expiration)
+        public function expiresAt($expiration): CacheItemInterface
         {
             $this->expiry = $expiration;
             return $this;
@@ -129,9 +129,9 @@ if (PHP_VERSION_ID >= 80000) {
 
         /**
          * @param \DateInterval|int|null $time
-         * @return $this
+         * @return CacheItemInterface
          */
-        public function expiresAfter($time)
+        public function expiresAfter($time): CacheItemInterface
         {
             if ($time === null) {
                 $this->expiry = null;
