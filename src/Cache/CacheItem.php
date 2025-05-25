@@ -40,26 +40,20 @@ if (PHP_VERSION_ID >= 80000) {
             return $this->hit;
         }
 
-        /**
-         * @param mixed $value
-         */
-        public function set($value): self
+        public function set(mixed $value): static
         {
             $this->value = $value;
             $this->hit = true;
             return $this;
         }
 
-        public function expiresAt(?\DateTimeInterface $expiration): self
+        public function expiresAt(?\DateTimeInterface $expiration): static
         {
             $this->expiry = $expiration;
             return $this;
         }
 
-        /**
-         * @param \DateInterval|int|null $time
-         */
-        public function expiresAfter($time): self
+        public function expiresAfter(int|\DateInterval|null $time): static
         {
             if ($time === null) {
                 $this->expiry = null;
