@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace AmazonPaapi5\Cache;
 
 use AmazonPaapi5\Exceptions\ThrottleException;
+use GuzzleHttp\Promise\PromiseInterface;
 
 class ThrottleManager
 {
@@ -27,7 +28,10 @@ class ThrottleManager
         $this->marketplaceRates[$marketplace] = 1 / $requestsPerSecond;
     }
 
-    public function throttle(callable $callback, array $args = [], ?string $marketplace = null): mixed
+    /**
+     * @return PromiseInterface
+     */
+    public function throttle(callable $callback, array $args = [], ?string $marketplace = null): PromiseInterface
     {
         $delay = $marketplace && isset($this->marketplaceRates[$marketplace])
             ? $this->marketplaceRates[$marketplace]
@@ -71,6 +75,9 @@ class ThrottleManager
         ];
     }
 
+    /**
+     * @return PromiseInterface[]
+     */
     public function processQueue(): array
     {
         $results = [];
