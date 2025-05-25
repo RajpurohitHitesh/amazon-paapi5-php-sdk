@@ -127,17 +127,22 @@ class Client
     }
 
     private function createRequest(AbstractOperation $operation): RequestInterface
-    {
-        return new Request(
-            $operation->getMethod(),
-            $operation->getPath(),
-            [
-                'Content-Type' => 'application/json',
-                'Accept' => 'application/json'
-            ],
-            json_encode($operation->getRequest()->toArray())
-        );
-    }
+{
+    $baseUrl = sprintf(
+        'https://%s',
+        $this->config->getMarketplace()
+    );
+    
+    return new Request(
+        $operation->getMethod(),
+        $baseUrl . $operation->getPath(),
+        [
+            'Content-Type' => 'application/json',
+            'Accept' => 'application/json'
+        ],
+        json_encode($operation->getRequest()->toArray())
+    );
+}
 
     private function cacheResponse(string $cacheKey, array $data): void
     {

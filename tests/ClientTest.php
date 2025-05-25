@@ -51,12 +51,22 @@ class ClientTest extends TestCase
         $this->client->execute($operation);
     }
 
-    public function testInvalidCredentials(): void
+        public function testInvalidCredentials(): void
     {
-        $this->expectException(ApiException::class);
+        $this->expectException(AuthenticationException::class);
         
+        // Invalid credentials config
+        $invalidConfig = new Config([
+            'access_key' => 'INVALID',
+            'secret_key' => 'INVALID',
+            'region' => 'us-east-1',
+            'marketplace' => 'webservices.amazon.com',
+            'partner_tag' => 'test-tag'
+        ]);
+        
+        $client = new Client($invalidConfig);
         $operation = new SearchItems($this->searchRequest);
-        $promise = $this->client->execute($operation);
+        $promise = $client->execute($operation);
         $promise->wait();
     }
 
