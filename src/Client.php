@@ -13,6 +13,7 @@ use AmazonPaapi5\Exceptions\AuthenticationException;
 use AmazonPaapi5\Exceptions\RequestException;
 use GuzzleHttp\Client as GuzzleClient;
 use GuzzleHttp\Exception\RequestException as GuzzleRequestException;
+use GuzzleHttp\Promise\PromiseInterface;
 use Psr\Cache\CacheItemPoolInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
@@ -33,7 +34,7 @@ class Client
         ?LoggerInterface $logger = null
     ) {
         $this->config = $config;
-        $this->credentialManager = new CredentialManager($config->getEncryptionKey());
+        $this->credentialManager = new CredentialManager($config);
         $this->signer = new AwsV4Signer(
             $this->credentialManager->getAccessKey(),
             $this->credentialManager->getSecretKey(),
@@ -121,7 +122,7 @@ class Client
 
     private function createRequest(AbstractOperation $operation): RequestInterface
     {
-        $request = new \GuzzleHttp\Psr7\Request(
+        return new \GuzzleHttp\Psr7\Request(
             $operation->getMethod(),
             $operation->getPath(),
             [
@@ -130,8 +131,6 @@ class Client
             ],
             json_encode($operation->getRequest()->toArray())
         );
-
-        return $request;
     }
 
     private function cacheResponse(string $cacheKey, array $data): void

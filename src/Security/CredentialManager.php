@@ -4,39 +4,40 @@ declare(strict_types=1);
 
 namespace AmazonPaapi5\Security;
 
+use AmazonPaapi5\Config;
 use AmazonPaapi5\Exceptions\SecurityException;
 
 class CredentialManager
 {
     private string $encryptionKey;
-    private array $credentials = [];
+    private string $accessKey;
+    private string $secretKey;
     
-    public function __construct(string $encryptionKey)
+    public function __construct(Config $config)
     {
-        if (strlen($encryptionKey) < 32) {
-            throw new SecurityException('Encryption key must be at least 32 characters long');
-        }
-        $this->encryptionKey = $encryptionKey;
+        $this->encryptionKey = $config->getEncryptionKey();
+        $this->setCredentials(
+            $config->getAccessKey(),
+            $config->getSecretKey()
+        );
     }
 
     public function setCredentials(string $accessKey, string $secretKey): void
     {
         $this->validateCredentials($accessKey, $secretKey);
         
-        $this->credentials = [
-            'access_key' => $this->encrypt($accessKey),
-            'secret_key' => $this->encrypt($secretKey)
-        ];
+        $this->accessKey = $this->encrypt($accessKey);
+        $this->secretKey = $this->encrypt($secretKey);
     }
 
     public function getAccessKey(): string
     {
-        return $this->decrypt($this->credentials['access_key']);
+        return $this->decrypt($this->accessKey);
     }
 
     public function getSecretKey(): string
     {
-        return $this->decrypt($this->credentials['secret_key']);
+        return $this->decrypt($this->secretKey);
     }
 
     private function encrypt(string $data): string
@@ -50,22 +51,32 @@ class CredentialManager
             $iv
         );
         
+        if ($encrypted === false) {
+            throw new SecurityException('Failed to encrypt data');
+        }
+        
         return base64_encode($iv . $encrypted);
     }
 
     private function decrypt(string $data): string
     {
-        $data = base64_decode($data);
-        $iv = substr($data, 0, 16);
-        $encrypted = substr($data, 16);
+        $decoded = base64_decode($data);
+        $iv = substr($decoded, 0, 16);
+        $encrypted = substr($decoded, 16);
         
-        return openssl_decrypt(
+        $decrypted = openssl_decrypt(
             $encrypted,
             'AES-256-CBC',
             $this->encryptionKey,
             OPENSSL_RAW_DATA,
             $iv
         );
+        
+        if ($decrypted === false) {
+            throw new SecurityException('Failed to decrypt data');
+        }
+        
+        return $decrypted;
     }
 
     private function validateCredentials(string $accessKey, string $secretKey): void
