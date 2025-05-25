@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace AmazonPaapi5\Cache;
 
 use Psr\Cache\CacheItemPoolInterface;
+use Psr\Cache\CacheItemInterface;
 use AmazonPaapi5\Exceptions\CacheException;
 
 class AdvancedCache implements CacheItemPoolInterface
@@ -29,7 +30,7 @@ class AdvancedCache implements CacheItemPoolInterface
         }
     }
 
-    public function getItem($key)
+    public function getItem($key): CacheItemInterface
     {
         $this->validateKey($key);
         
@@ -53,33 +54,33 @@ class AdvancedCache implements CacheItemPoolInterface
             return new CacheItem($key);
         }
 
-        $item = new CacheItem($key);
-        $item->set($data['value'])->expiresAt(
-            $data['expiry'] ? \DateTime::createFromFormat('U', (string)$data['expiry']) : null
-        );
+        $item = new CacheItem($key, $data['value'], true);
+        if ($data['expiry']) {
+            $item->expiresAt(\DateTime::createFromFormat('U', (string)$data['expiry']));
+        }
 
         $this->items[$key] = $item;
         return $item;
     }
 
-    public function getItems(array $keys = [])
+    public function getItems(array $keys = []): array
     {
-        return array_map([$this, 'getItem'], $keys);
+        return array_combine($keys, array_map([$this, 'getItem'], $keys));
     }
 
-    public function hasItem($key)
+    public function hasItem($key): bool
     {
         return $this->getItem($key)->isHit();
     }
 
-    public function clear()
+    public function clear(): bool
     {
         $this->items = [];
         array_map('unlink', glob($this->cacheDir . '/*'));
         return true;
     }
 
-    public function deleteItem($key)
+    public function deleteItem($key): bool
     {
         $this->validateKey($key);
         unset($this->items[$key]);
@@ -92,15 +93,17 @@ class AdvancedCache implements CacheItemPoolInterface
         return true;
     }
 
-    public function deleteItems(array $keys)
+    public function deleteItems(array $keys): bool
     {
         foreach ($keys as $key) {
-            $this->deleteItem($key);
+            if (!$this->deleteItem($key)) {
+                return false;
+            }
         }
         return true;
     }
 
-    public function save(CacheItemInterface $item)
+    public function save(CacheItemInterface $item): bool
     {
         $key = $item->getKey();
         $this->validateKey($key);
@@ -109,19 +112,21 @@ class AdvancedCache implements CacheItemPoolInterface
         
         $data = [
             'value' => $item->get(),
-            'expiry' => $item->getExpiry() ? $item->getExpiry()->getTimestamp() : null
+            'expiry' => $item instanceof CacheItem && $item->getExpiry()
+                ? $item->getExpiry()->getTimestamp()
+                : null
         ];
 
         return $this->writeFile($this->getFilePath($key), $data);
     }
 
-    public function saveDeferred(CacheItemInterface $item)
+    public function saveDeferred(CacheItemInterface $item): bool
     {
         $this->items[$item->getKey()] = $item;
         return true;
     }
 
-    public function commit()
+    public function commit(): bool
     {
         foreach ($this->items as $item) {
             if (!$this->save($item)) {
@@ -131,19 +136,19 @@ class AdvancedCache implements CacheItemPoolInterface
         return true;
     }
 
-    private function validateKey($key)
+    private function validateKey($key): void
     {
         if (!is_string($key) || preg_match('/[^a-zA-Z0-9._-]/', $key)) {
             throw new CacheException('Invalid cache key');
         }
     }
 
-    private function getFilePath($key)
+    private function getFilePath($key): string
     {
         return $this->cacheDir . '/' . $key . '.cache';
     }
 
-    private function writeFile($path, $data)
+    private function writeFile($path, $data): bool
     {
         return file_put_contents($path, serialize($data), LOCK_EX) !== false;
     }
