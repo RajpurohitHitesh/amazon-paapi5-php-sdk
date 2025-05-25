@@ -9,6 +9,7 @@ use AmazonPaapi5\Client;
 use AmazonPaapi5\Config;
 use AmazonPaapi5\Cache\AdvancedCache;
 use AmazonPaapi5\Exceptions\ApiException;
+use AmazonPaapi5\Exceptions\AuthenticationException;  // यह लाइन add की है
 use AmazonPaapi5\Operations\SearchItems;
 use AmazonPaapi5\Models\Request\SearchItemsRequest;
 
@@ -28,7 +29,7 @@ class ClientTest extends TestCase
             'access_key' => str_repeat('A', 20) . 'TESTKEY',
             'secret_key' => str_repeat('B', 30) . 'TESTSECRET',
             'region' => 'us-east-1',
-            'marketplace' => 'www.amazon.com',
+            'marketplace' => 'webservices.amazon.com',  // marketplace URL update किया है
             'partner_tag' => 'test-tag',
             'encryption_key' => str_repeat('x', 32),
             'cache_dir' => $this->tempDir
@@ -51,7 +52,7 @@ class ClientTest extends TestCase
         $this->client->execute($operation);
     }
 
-        public function testInvalidCredentials(): void
+    public function testInvalidCredentials(): void
     {
         $this->expectException(AuthenticationException::class);
         
