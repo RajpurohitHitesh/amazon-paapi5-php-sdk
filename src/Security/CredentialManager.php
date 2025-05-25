@@ -82,11 +82,11 @@ class CredentialManager
     private function validateCredentials(string $accessKey, string $secretKey): void
     {
         if (empty($accessKey) || strlen($accessKey) < 16) {
-            throw new SecurityException('Invalid access key format');
+            throw new AuthenticationException('Invalid access key format');  // Changed from SecurityException
         }
         
         if (empty($secretKey) || strlen($secretKey) < 32) {
-            throw new SecurityException('Invalid secret key format');
+            throw new AuthenticationException('Invalid secret key format');  // Changed from SecurityException
         }
     }
 }

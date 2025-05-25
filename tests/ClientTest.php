@@ -52,18 +52,18 @@ class ClientTest extends TestCase
         $this->client->execute($operation);
     }
 
-    public function testInvalidCredentials(): void
+        public function testInvalidCredentials(): void
     {
         $this->expectException(AuthenticationException::class);
         
-        // Invalid credentials config
+        // Invalid credentials config but with valid format
         $invalidConfig = new Config([
-            'access_key' => 'INVALID',
-            'secret_key' => 'INVALID',
+            'access_key' => str_repeat('A', 20),  // At least 16 chars
+            'secret_key' => str_repeat('B', 40),  // At least 32 chars
             'region' => 'us-east-1',
             'marketplace' => 'webservices.amazon.com',
             'partner_tag' => 'test-tag',
-            'encryption_key' => str_repeat('x', 32)  // Add encryption key
+            'encryption_key' => str_repeat('x', 32)
         ]);
         
         $client = new Client($invalidConfig);
@@ -71,6 +71,7 @@ class ClientTest extends TestCase
         $promise = $client->execute($operation);
         $promise->wait();
     }
+
     public function testCaching(): void
     {
         $this->expectNotToPerformAssertions();
