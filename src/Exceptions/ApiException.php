@@ -4,18 +4,12 @@ declare(strict_types=1);
 
 namespace AmazonPaapi5\Exceptions;
 
-class ApiException extends \Exception
+class ApiException extends BaseException
 {
-    public function __construct(string $message, array $metadata = [])
-    {
-        parent::__construct($message . ' Suggestion: Review API response for details.', 0, null);
-        $this->metadata = $metadata;
-    }
+    protected string $suggestion = 'Suggestion: Review API response for details and ensure request format is correct.';
 
-    private array $metadata;
-
-    public function getMetadata(): array
+    public function getErrorType(): string
     {
-        return $this->metadata;
+        return 'API_ERROR';
     }
 }

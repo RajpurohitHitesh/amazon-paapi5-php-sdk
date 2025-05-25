@@ -4,18 +4,12 @@ declare(strict_types=1);
 
 namespace AmazonPaapi5\Exceptions;
 
-class AuthenticationException extends \Exception
+class AuthenticationException extends BaseException
 {
-    public function __construct(string $message, array $metadata = [])
-    {
-        parent::__construct($message . ' Suggestion: Verify your AWS credentials and region settings.', 0, null);
-        $this->metadata = $metadata;
-    }
+    protected string $suggestion = 'Suggestion: Verify your AWS credentials, region settings, and ensure proper encryption.';
 
-    private array $metadata;
-
-    public function getMetadata(): array
+    public function getErrorType(): string
     {
-        return $this->metadata;
+        return 'AUTHENTICATION_ERROR';
     }
 }

@@ -4,102 +4,85 @@ declare(strict_types=1);
 
 namespace AmazonPaapi5;
 
-use Psr\Cache\CacheItemPoolInterface;
-
 class Config
 {
-    private string $accessKey;
-    private string $secretKey;
-    private string $partnerTag;
-    private string $encryptionKey;
-    private string $marketplace = 'www.amazon.com';
-    private string $region = 'us-east-1';
-    private string $host = 'webservices.amazon.com';
-    private float $throttleDelay = 1.0; // seconds
-    private int $cacheTtl = 3600; // 1 hour
-    private ?CacheItemPoolInterface $cachePool;
+    private array $config;
+    private static array $requiredFields = [
+        'access_key',
+        'secret_key',
+        'region',
+        'marketplace',
+        'partner_tag',
+        'encryption_key'
+    ];
 
-    public function __construct(
-        string $accessKey,
-        string $secretKey,
-        string $partnerTag,
-        string $encryptionKey,
-        ?CacheItemPoolInterface $cachePool = null
-    ) {
-        $this->accessKey = $accessKey;
-        $this->secretKey = $secretKey;
-        $this->partnerTag = $partnerTag;
-        $this->encryptionKey = $encryptionKey;
-        $this->cachePool = $cachePool;
+    public function __construct(array $config)
+    {
+        $this->validateConfig($config);
+        $this->config = array_merge([
+            'cache_dir' => sys_get_temp_dir() . '/amazon-paapi5-cache',
+            'cache_ttl' => 3600,
+            'throttle_delay' => 1.0,
+            'max_retries' => 3
+        ], $config);
+    }
+
+    private function validateConfig(array $config): void
+    {
+        foreach (self::$requiredFields as $field) {
+            if (!isset($config[$field])) {
+                throw new \InvalidArgumentException("Missing required config field: {$field}");
+            }
+        }
     }
 
     public function getAccessKey(): string
     {
-        return $this->accessKey;
+        return $this->config['access_key'];
     }
 
     public function getSecretKey(): string
     {
-        return $this->secretKey;
-    }
-
-    public function getPartnerTag(): string
-    {
-        return $this->partnerTag;
-    }
-
-    public function getEncryptionKey(): string
-    {
-        return $this->encryptionKey;
-    }
-
-    public function setMarketplace(string $marketplace): self
-    {
-        $this->marketplace = $marketplace;
-        $this->host = Marketplace::getHost($marketplace);
-        $this->region = Marketplace::getRegion($marketplace);
-        return $this;
-    }
-
-    public function getMarketplace(): string
-    {
-        return $this->marketplace;
+        return $this->config['secret_key'];
     }
 
     public function getRegion(): string
     {
-        return $this->region;
+        return $this->config['region'];
     }
 
-    public function getHost(): string
+    public function getMarketplace(): string
     {
-        return $this->host;
+        return $this->config['marketplace'];
     }
 
-    public function setThrottleDelay(float $delay): self
+    public function getPartnerTag(): string
     {
-        $this->throttleDelay = max(0.1, $delay);
-        return $this;
+        return $this->config['partner_tag'];
     }
 
-    public function getThrottleDelay(): float
+    public function getEncryptionKey(): string
     {
-        return $this->throttleDelay;
+        return $this->config['encryption_key'];
     }
 
-    public function setCacheTtl(int $ttl): self
+    public function getCacheDir(): string
     {
-        $this->cacheTtl = max(60, $ttl);
-        return $this;
+        return $this->config['cache_dir'];
     }
 
     public function getCacheTtl(): int
     {
-        return $this->cacheTtl;
+        return $this->config['cache_ttl'];
     }
 
-    public function getCachePool(): ?CacheItemPoolInterface
+    public function getThrottleDelay(): float
     {
-        return $this->cachePool;
+        return $this->config['throttle_delay'];
+    }
+
+    public function getMaxRetries(): int
+    {
+        return $this->config['max_retries'];
     }
 }

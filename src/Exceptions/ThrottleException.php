@@ -4,18 +4,12 @@ declare(strict_types=1);
 
 namespace AmazonPaapi5\Exceptions;
 
-class ThrottleException extends \Exception
+class ThrottleException extends BaseException
 {
-    public function __construct(string $message, array $metadata = [])
-    {
-        parent::__construct($message . ' Suggestion: Reduce request frequency or increase throttle delay.', 0, null);
-        $this->metadata = $metadata;
-    }
+    protected string $suggestion = 'Suggestion: Reduce request frequency, increase throttle delay, or implement request queuing.';
 
-    private array $metadata;
-
-    public function getMetadata(): array
+    public function getErrorType(): string
     {
-        return $this->metadata;
+        return 'THROTTLE_ERROR';
     }
 }

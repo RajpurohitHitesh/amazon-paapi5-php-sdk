@@ -5,22 +5,17 @@ declare(strict_types=1);
 namespace AmazonPaapi5;
 
 use AmazonPaapi5\Auth\AwsV4Signer;
-use AmazonPaapi5\Auth\CredentialManager;
-use AmazonPaapi5\Cache\FileCache;
+use AmazonPaapi5\Security\CredentialManager;
+use AmazonPaapi5\Cache\AdvancedCache;
 use AmazonPaapi5\Cache\ThrottleManager;
 use AmazonPaapi5\Exceptions\ApiException;
 use AmazonPaapi5\Exceptions\AuthenticationException;
 use AmazonPaapi5\Exceptions\RequestException;
-use AmazonPaapi5\Exceptions\ThrottleException;
-use AmazonPaapi5\Models\Response\GetBrowseNodesResponse;
-use AmazonPaapi5\Models\Response\GetItemsResponse;
-use AmazonPaapi5\Models\Response\GetVariationsResponse;
-use AmazonPaapi5\Models\Response\SearchItemsResponse;
-use AmazonPaapi5\Operations\AbstractOperation;
 use GuzzleHttp\Client as GuzzleClient;
 use GuzzleHttp\Exception\RequestException as GuzzleRequestException;
-use GuzzleHttp\Promise\PromiseInterface;
 use Psr\Cache\CacheItemPoolInterface;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 
 class Client
 {
@@ -28,107 +23,150 @@ class Client
     private GuzzleClient $httpClient;
     private AwsV4Signer $signer;
     private CredentialManager $credentialManager;
+    private CacheItemPoolInterface $cache;
     private ThrottleManager $throttleManager;
-    private ?CacheItemPoolInterface $cache;
+    private LoggerInterface $logger;
 
-    public function __construct(Config $config, ?CacheItemPoolInterface $cache = null)
-    {
+    public function __construct(
+        Config $config,
+        ?CacheItemPoolInterface $cache = null,
+        ?LoggerInterface $logger = null
+    ) {
         $this->config = $config;
-        $this->credentialManager = new CredentialManager(
-            $config->getAccessKey(),
-            $config->getSecretKey(),
-            $config->getEncryptionKey()
-        );
+        $this->credentialManager = new CredentialManager($config->getEncryptionKey());
         $this->signer = new AwsV4Signer(
             $this->credentialManager->getAccessKey(),
             $this->credentialManager->getSecretKey(),
             $config->getRegion()
         );
+        
         $this->httpClient = new GuzzleClient([
-            'base_uri' => 'https://' . $config->getHost(),
-            'headers' => ['Accept-Encoding' => 'gzip'],
+            'verify' => true,
             'http_errors' => false,
+            'connect_timeout' => 5,
+            'timeout' => 30
         ]);
+        
+        $this->cache = $cache ?? new AdvancedCache($config->getCacheDir());
         $this->throttleManager = new ThrottleManager($config->getThrottleDelay());
-        $this->cache = $cache ?? $config->getCachePool() ?? new FileCache();
+        $this->logger = $logger ?? new NullLogger();
     }
 
     public function sendAsync(AbstractOperation $operation): PromiseInterface
     {
-        $operation->setClient($this);
         $cacheKey = $this->generateCacheKey($operation);
 
-        if ($this->cache->hasItem($cacheKey)) {
-            $item = $this->cache->getItem($cacheKey);
-            if ($item->isHit()) {
-                return \GuzzleHttp\Promise\promise_for($this->createResponse($operation, $item->get()));
+        try {
+            if ($this->cache->hasItem($cacheKey)) {
+                $item = $this->cache->getItem($cacheKey);
+                if ($item->isHit()) {
+                    $this->logger->debug('Cache hit', ['operation' => get_class($operation)]);
+                    return \GuzzleHttp\Promise\promise_for(
+                        $this->createResponse($operation, $item->get())
+                    );
+                }
             }
+        } catch (\Exception $e) {
+            $this->logger->warning('Cache error', [
+                'error' => $e->getMessage(),
+                'operation' => get_class($operation)
+            ]);
         }
 
-        return $this->throttleManager->throttle(function () use ($operation, $cacheKey) {
-            $request = new \GuzzleHttp\Psr7\Request(
-                $operation->getMethod(),
-                $operation->getPath(),
-                [],
-                json_encode($operation->getRequest()->toArray())
-            );
+        return $this->throttleManager->throttle(
+            function () use ($operation, $cacheKey) {
+                $request = $this->createRequest($operation);
+                $signedRequest = $this->signer->signRequest($request);
 
-            $signedRequest = $this->signer->signRequest(
-                $request,
-                $operation->getPath(),
-                json_encode($operation->getRequest()->toArray())
-            );
+                $this->logger->info('Sending request', [
+                    'operation' => get_class($operation),
+                    'path' => $operation->getPath()
+                ]);
 
-            return $this->httpClient->sendAsync($signedRequest)->then(
-                function ($response) use ($operation, $cacheKey) {
-                    $data = json_decode((string)$response->getBody(), true);
-                    if ($response->getStatusCode() >= 400) {
-                        $this->handleError($data, $response->getStatusCode());
+                return $this->httpClient->sendAsync($signedRequest)->then(
+                    function ($response) use ($operation, $cacheKey) {
+                        $statusCode = $response->getStatusCode();
+                        $data = json_decode((string)$response->getBody(), true);
+
+                        if ($statusCode >= 400) {
+                            $this->handleError($data, $statusCode);
+                        }
+
+                        try {
+                            $responseObj = $this->createResponse($operation, $data);
+                            $this->cacheResponse($cacheKey, $data);
+                            return $responseObj;
+                        } catch (\Exception $e) {
+                            throw new ApiException(
+                                'Failed to process response: ' . $e->getMessage(),
+                                ['response_data' => $data]
+                            );
+                        }
+                    },
+                    function ($exception) {
+                        if ($exception instanceof GuzzleRequestException) {
+                            throw new RequestException(
+                                'Request failed: ' . $exception->getMessage(),
+                                ['code' => $exception->getCode()]
+                            );
+                        }
+                        throw new ApiException('Unexpected error: ' . $exception->getMessage());
                     }
-
-                    // Invalidate cache for this key before storing new data
-                    $this->cache->deleteItem($cacheKey);
-
-                    $responseObj = $this->createResponse($operation, $data);
-                    $cacheItem = $this->cache->getItem($cacheKey);
-                    $cacheItem->set($data)->expiresAfter($this->config->getCacheTtl());
-                    $this->cache->save($cacheItem);
-
-                    return $responseObj;
-                },
-                function ($exception) {
-                    if ($exception instanceof GuzzleRequestException) {
-                        throw new RequestException(
-                            'Request failed: ' . $exception->getMessage(),
-                            ['code' => $exception->getCode()]
-                        );
-                    }
-                    throw new ApiException('Unexpected error: ' . $exception->getMessage());
-                }
-            );
-        });
+                );
+            },
+            [],
+            $operation->getMarketplace()
+        );
     }
 
-    private function createResponse(AbstractOperation $operation, array $data)
+    private function createRequest(AbstractOperation $operation): RequestInterface
     {
-        switch (get_class($operation)) {
-            case \AmazonPaapi5\Operations\SearchItems::class:
-                return new SearchItemsResponse($data);
-            case \AmazonPaapi5\Operations\GetItems::class:
-                return new GetItemsResponse($data);
-            case \AmazonPaapi5\Operations\GetVariations::class:
-                return new GetVariationsResponse($data);
-            case \AmazonPaapi5\Operations\GetBrowseNodes::class:
-                return new GetBrowseNodesResponse($data);
-            default:
-                throw new ApiException('Unsupported operation');
+        $request = new \GuzzleHttp\Psr7\Request(
+            $operation->getMethod(),
+            $operation->getPath(),
+            [
+                'Content-Type' => 'application/json',
+                'Accept' => 'application/json'
+            ],
+            json_encode($operation->getRequest()->toArray())
+        );
+
+        return $request;
+    }
+
+    private function cacheResponse(string $cacheKey, array $data): void
+    {
+        try {
+            $cacheItem = $this->cache->getItem($cacheKey);
+            $cacheItem->set($data)->expiresAfter($this->config->getCacheTtl());
+            $this->cache->save($cacheItem);
+        } catch (\Exception $e) {
+            $this->logger->warning('Failed to cache response', [
+                'key' => $cacheKey,
+                'error' => $e->getMessage()
+            ]);
         }
+    }
+
+    private function generateCacheKey(AbstractOperation $operation): string
+    {
+        return md5(
+            get_class($operation) .
+            json_encode($operation->getRequest()->toArray()) .
+            $operation->getMarketplace()
+        );
     }
 
     private function handleError(array $data, int $statusCode): void
     {
         $message = $data['Errors'][0]['Message'] ?? 'Unknown error';
         $code = $data['Errors'][0]['Code'] ?? 'Unknown';
+
+        $this->logger->error('API error', [
+            'status_code' => $statusCode,
+            'error_code' => $code,
+            'message' => $message
+        ]);
 
         switch ($statusCode) {
             case 401:
@@ -143,26 +181,9 @@ class Client
         }
     }
 
-    private function generateCacheKey(AbstractOperation $operation): string
+    private function createResponse(AbstractOperation $operation, array $data)
     {
-        return hash('sha256',
-            get_class($operation) . ':' .
-            json_encode($operation->getRequest()->toArray()) . ':' .
-            $this->config->getMarketplace()
-        );
-    }
-
-    public function executeBatch(array $operations): array
-    {
-        $promises = [];
-        foreach ($operations as $operation) {
-            $promises[] = $this->sendAsync($operation);
-        }
-        return \GuzzleHttp\Promise\Utils::unwrap($promises);
-    }
-
-    public function getConfig(): Config
-    {
-        return $this->config;
+        $responseClass = $operation->getResponseClass();
+        return new $responseClass($data);
     }
 }
