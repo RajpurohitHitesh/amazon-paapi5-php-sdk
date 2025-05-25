@@ -30,8 +30,10 @@ class CacheItem implements CacheItemInterface
     }
 
     /**
+     * {@inheritdoc}
      * @return mixed
      */
+    #[\ReturnTypeWillChange]
     public function get()
     {
         return $this->value;
@@ -44,20 +46,15 @@ class CacheItem implements CacheItemInterface
 
     /**
      * @param mixed $value
-     * @return static
      */
-    public function set($value)
+    public function set($value): static
     {
         $this->value = $value;
         $this->hit = true;
         return $this;
     }
 
-    /**
-     * @param \DateTimeInterface|null $expiration
-     * @return static
-     */
-    public function expiresAt($expiration)
+    public function expiresAt(?\DateTimeInterface $expiration): static
     {
         $this->expiry = $expiration;
         return $this;
@@ -65,9 +62,8 @@ class CacheItem implements CacheItemInterface
 
     /**
      * @param \DateInterval|int|null $time
-     * @return static
      */
-    public function expiresAfter($time)
+    public function expiresAfter($time): static
     {
         if ($time === null) {
             $this->expiry = null;
