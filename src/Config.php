@@ -14,14 +14,9 @@ class Config
         'secret_key',
         'region',
         'marketplace',
-        'partner_tag',
-        'encryption_key'
-    ];
+        'partner_tag'
+    ];  // Removed encryption_key from required fields
 
-    /**
-     * @param array<string, mixed> $config
-     * @throws ConfigException
-     */
     public function __construct(array $config)
     {
         $this->validateConfig($config);
@@ -29,14 +24,11 @@ class Config
             'cache_dir' => sys_get_temp_dir() . '/amazon-paapi5-cache',
             'cache_ttl' => 3600,
             'throttle_delay' => 1.0,
-            'max_retries' => 3
+            'max_retries' => 3,
+            'encryption_key' => ''  // Add default empty value
         ], $config);
     }
 
-    /**
-     * @param array<string, mixed> $config
-     * @throws ConfigException
-     */
     private function validateConfig(array $config): void
     {
         foreach (self::$requiredFields as $field) {

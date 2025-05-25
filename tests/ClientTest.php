@@ -62,7 +62,8 @@ class ClientTest extends TestCase
             'secret_key' => 'INVALID',
             'region' => 'us-east-1',
             'marketplace' => 'webservices.amazon.com',
-            'partner_tag' => 'test-tag'
+            'partner_tag' => 'test-tag',
+            'encryption_key' => str_repeat('x', 32)  // Add encryption key
         ]);
         
         $client = new Client($invalidConfig);
@@ -70,7 +71,6 @@ class ClientTest extends TestCase
         $promise = $client->execute($operation);
         $promise->wait();
     }
-
     public function testCaching(): void
     {
         $this->expectNotToPerformAssertions();
