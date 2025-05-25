@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace AmazonPaapi5\Operations;
 
+use AmazonPaapi5\AbstractOperation;
 use AmazonPaapi5\Models\Request\SearchItemsRequest;
 use GuzzleHttp\Promise\PromiseInterface;
 

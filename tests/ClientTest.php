@@ -25,8 +25,8 @@ class ClientTest extends TestCase
         mkdir($this->tempDir);
 
         $this->config = new Config([
-            'access_key' => str_repeat('A', 20) . 'TESTKEY', // 26 characters
-            'secret_key' => str_repeat('B', 30) . 'TESTSECRET', // 39 characters
+            'access_key' => str_repeat('A', 20) . 'TESTKEY',
+            'secret_key' => str_repeat('B', 30) . 'TESTSECRET',
             'region' => 'us-east-1',
             'marketplace' => 'www.amazon.com',
             'partner_tag' => 'test-tag',
@@ -37,11 +37,40 @@ class ClientTest extends TestCase
         $cache = new AdvancedCache($this->tempDir);
         $this->client = new Client($this->config, $cache);
 
-        // Setup search request
         $this->searchRequest = new SearchItemsRequest();
         $this->searchRequest->setPartnerTag($this->config->getPartnerTag())
             ->setKeywords('test product')
             ->setResources(['Images.Primary.Small', 'ItemInfo.Title']);
+    }
+
+    public function testSearchItemsOperation(): void
+    {
+        $this->expectNotToPerformAssertions();
+        
+        $operation = new SearchItems($this->searchRequest);
+        $this->client->execute($operation);
+    }
+
+    public function testInvalidCredentials(): void
+    {
+        $this->expectException(ApiException::class);
+        
+        $operation = new SearchItems($this->searchRequest);
+        $promise = $this->client->execute($operation);
+        $promise->wait();
+    }
+
+    public function testCaching(): void
+    {
+        $this->expectNotToPerformAssertions();
+        
+        $operation = new SearchItems($this->searchRequest);
+        
+        // First request
+        $this->client->execute($operation);
+        
+        // Second request (should hit cache)
+        $this->client->execute($operation);
     }
 
     protected function tearDown(): void
@@ -61,35 +90,5 @@ class ClientTest extends TestCase
             }
             rmdir($this->tempDir);
         }
-    }
-
-    public function testSearchItemsOperation(): void
-    {
-        $this->expectNotToPerformAssertions();
-        
-        $operation = new SearchItems($this->searchRequest);
-        $this->client->sendAsync($operation);
-    }
-
-    public function testInvalidCredentials(): void
-    {
-        $this->expectException(ApiException::class);
-        
-        $operation = new SearchItems($this->searchRequest);
-        $promise = $this->client->sendAsync($operation);
-        $promise->wait();
-    }
-
-    public function testCaching(): void
-    {
-        $this->expectNotToPerformAssertions();
-        
-        $operation = new SearchItems($this->searchRequest);
-        
-        // First request
-        $this->client->sendAsync($operation);
-        
-        // Second request (should hit cache)
-        $this->client->sendAsync($operation);
     }
 }

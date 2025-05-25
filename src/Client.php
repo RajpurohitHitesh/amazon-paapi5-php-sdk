@@ -53,6 +53,12 @@ class Client
         $this->logger = $logger ?? new NullLogger();
     }
 
+    public function execute(AbstractOperation $operation): PromiseInterface
+    {
+        $operation->setClient($this);
+        return $operation->executeAsync();
+    }
+
     public function sendAsync(AbstractOperation $operation): PromiseInterface
     {
         $cacheKey = $this->generateCacheKey($operation);

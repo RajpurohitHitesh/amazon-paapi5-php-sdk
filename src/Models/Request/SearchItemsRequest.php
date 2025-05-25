@@ -4,14 +4,13 @@ declare(strict_types=1);
 
 namespace AmazonPaapi5\Models\Request;
 
-class SearchItemsRequest
+class SearchItemsRequest extends AbstractRequest
 {
     private string $partnerTag;
     private string $partnerType = 'Associates';
-    private ?string $keywords = null;
-    private ?string $searchIndex = 'All';
+    private string $keywords;
     private array $resources = [];
-    private ?int $itemCount = null;
+    private ?string $searchIndex = null;
 
     public function setPartnerTag(string $partnerTag): self
     {
@@ -25,33 +24,31 @@ class SearchItemsRequest
         return $this;
     }
 
-    public function setSearchIndex(string $searchIndex): self
-    {
-        $this->searchIndex = $searchIndex;
-        return $this;
-    }
-
-    public function setItemCount(int $itemCount): self
-    {
-        $this->itemCount = max(1, min(10, $itemCount));
-        return $this;
-    }
-
     public function setResources(array $resources): self
     {
         $this->resources = $resources;
         return $this;
     }
 
+    public function setSearchIndex(?string $searchIndex): self
+    {
+        $this->searchIndex = $searchIndex;
+        return $this;
+    }
+
     public function toArray(): array
     {
-        return array_filter([
+        $data = [
             'PartnerTag' => $this->partnerTag,
             'PartnerType' => $this->partnerType,
             'Keywords' => $this->keywords,
-            'SearchIndex' => $this->searchIndex,
-            'ItemCount' => $this->itemCount,
-            'Resources' => $this->resources,
-        ], fn($value) => !is_null($value));
+            'Resources' => $this->resources
+        ];
+
+        if ($this->searchIndex !== null) {
+            $data['SearchIndex'] = $this->searchIndex;
+        }
+
+        return $data;
     }
 }
