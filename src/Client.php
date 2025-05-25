@@ -128,7 +128,7 @@ class Client
 
     private function createRequest(AbstractOperation $operation): RequestInterface
     {
-        return new \GuzzleHttp\Psr7\Request(
+        return new Request(
             $operation->getMethod(),
             $operation->getPath(),
             [
