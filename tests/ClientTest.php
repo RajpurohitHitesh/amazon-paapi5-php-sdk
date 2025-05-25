@@ -10,12 +10,14 @@ use AmazonPaapi5\Config;
 use AmazonPaapi5\Cache\AdvancedCache;
 use AmazonPaapi5\Exceptions\ApiException;
 use AmazonPaapi5\Operations\SearchItems;
+use AmazonPaapi5\Models\Request\SearchItemsRequest;
 
 class ClientTest extends TestCase
 {
     private Client $client;
     private Config $config;
     private string $tempDir;
+    private SearchItemsRequest $searchRequest;
 
     protected function setUp(): void
     {
@@ -23,8 +25,8 @@ class ClientTest extends TestCase
         mkdir($this->tempDir);
 
         $this->config = new Config([
-            'access_key' => str_repeat('A', 20) . 'TESTKEY',
-            'secret_key' => str_repeat('B', 30) . 'TESTSECRET',
+            'access_key' => str_repeat('A', 20) . 'TESTKEY', // 26 characters
+            'secret_key' => str_repeat('B', 30) . 'TESTSECRET', // 39 characters
             'region' => 'us-east-1',
             'marketplace' => 'www.amazon.com',
             'partner_tag' => 'test-tag',
@@ -34,11 +36,16 @@ class ClientTest extends TestCase
 
         $cache = new AdvancedCache($this->tempDir);
         $this->client = new Client($this->config, $cache);
+
+        // Setup search request
+        $this->searchRequest = new SearchItemsRequest();
+        $this->searchRequest->setPartnerTag($this->config->getPartnerTag())
+            ->setKeywords('test product')
+            ->setResources(['Images.Primary.Small', 'ItemInfo.Title']);
     }
 
     protected function tearDown(): void
     {
-        // Clean up test directory
         if (is_dir($this->tempDir)) {
             $files = new \RecursiveIteratorIterator(
                 new \RecursiveDirectoryIterator($this->tempDir, \RecursiveDirectoryIterator::SKIP_DOTS),
@@ -60,9 +67,7 @@ class ClientTest extends TestCase
     {
         $this->expectNotToPerformAssertions();
         
-        $operation = new SearchItems();
-        $operation->setKeywords('test product');
-        
+        $operation = new SearchItems($this->searchRequest);
         $this->client->sendAsync($operation);
     }
 
@@ -70,9 +75,7 @@ class ClientTest extends TestCase
     {
         $this->expectException(ApiException::class);
         
-        $operation = new SearchItems();
-        $operation->setKeywords('test product');
-        
+        $operation = new SearchItems($this->searchRequest);
         $promise = $this->client->sendAsync($operation);
         $promise->wait();
     }
@@ -81,8 +84,7 @@ class ClientTest extends TestCase
     {
         $this->expectNotToPerformAssertions();
         
-        $operation = new SearchItems();
-        $operation->setKeywords('test product');
+        $operation = new SearchItems($this->searchRequest);
         
         // First request
         $this->client->sendAsync($operation);
