@@ -28,7 +28,7 @@
         "cs": "phpcs --standard=PSR12 src tests",
         "analyse": "phpstan analyse src tests --level=7"
     },
-    "license": "MIT",
+    "license": "Apache-2.0",
     "authors": [
         {
             "name": "Hitesh Rajpurohit",
