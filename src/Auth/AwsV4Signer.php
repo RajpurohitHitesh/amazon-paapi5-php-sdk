@@ -12,7 +12,6 @@ class AwsV4Signer
     private string $accessKey;
     private string $secretKey;
     private string $region;
-    private string $service = 'ProductAdvertisingAPI';
 
     public function __construct(string $accessKey, string $secretKey, string $region)
     {
@@ -21,7 +20,7 @@ class AwsV4Signer
         $this->region = $region;
     }
 
-    public function signRequest(RequestInterface $request, string $path, string $payload): RequestInterface
+    public function signRequest(PsrRequestInterface $request): PsrRequestInterface
     {
         $timestamp = gmdate('Ymd\THis\Z');
         $date = gmdate('Ymd');
@@ -40,7 +39,7 @@ class AwsV4Signer
 
         $headers['Authorization'] = $this->buildAuthorizationHeader($timestamp, $date, $signature);
 
-        return new Request(
+        return $request(
             $request->getMethod(),
             $request->getUri(),
             $headers,
