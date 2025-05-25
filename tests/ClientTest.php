@@ -23,8 +23,8 @@ class ClientTest extends TestCase
         mkdir($this->tempDir);
 
         $this->config = new Config([
-            'access_key' => 'test_access_key',
-            'secret_key' => 'test_secret_key',
+            'access_key' => str_repeat('A', 20) . 'TESTKEY',
+            'secret_key' => str_repeat('B', 30) . 'TESTSECRET',
             'region' => 'us-east-1',
             'marketplace' => 'www.amazon.com',
             'partner_tag' => 'test-tag',
