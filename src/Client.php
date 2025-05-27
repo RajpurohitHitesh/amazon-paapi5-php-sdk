@@ -8,12 +8,18 @@ use AmazonPaapi5\Auth\AwsV4Signer;
 use AmazonPaapi5\Security\CredentialManager;
 use AmazonPaapi5\Cache\AdvancedCache;
 use AmazonPaapi5\Cache\ThrottleManager;
+use AmazonPaapi5\Connection\ConnectionPool;
+use AmazonPaapi5\Batch\BatchProcessor;
+use AmazonPaapi5\Queue\RequestQueueOptimizer;
 use AmazonPaapi5\Exceptions\ApiException;
 use AmazonPaapi5\Exceptions\AuthenticationException;
 use AmazonPaapi5\Exceptions\RequestException;
+use AmazonPaapi5\Exceptions\ThrottleException;
 use GuzzleHttp\Client as GuzzleClient;
 use GuzzleHttp\Exception\RequestException as GuzzleRequestException;
 use GuzzleHttp\Promise\PromiseInterface;
+use GuzzleHttp\Psr7\Request;
+use Psr\Http\Message\RequestInterface;
 use Psr\Cache\CacheItemPoolInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
@@ -26,6 +32,9 @@ class Client
     private CredentialManager $credentialManager;
     private CacheItemPoolInterface $cache;
     private ThrottleManager $throttleManager;
+    private ConnectionPool $connectionPool;
+    private BatchProcessor $batchProcessor;
+    private RequestQueueOptimizer $queueOptimizer;
     private LoggerInterface $logger;
 
     public function __construct(
@@ -34,6 +43,9 @@ class Client
         ?LoggerInterface $logger = null
     ) {
         $this->config = $config;
+        $this->logger = $logger ?? new NullLogger();
+        
+        // Initialize credential manager and signer
         $this->credentialManager = new CredentialManager($config);
         $this->signer = new AwsV4Signer(
             $this->credentialManager->getAccessKey(),
@@ -41,16 +53,17 @@ class Client
             $config->getRegion()
         );
         
-        $this->httpClient = new GuzzleClient([
-            'verify' => true,
-            'http_errors' => false,
-            'connect_timeout' => 5,
-            'timeout' => 30
-        ]);
+        // Initialize connection pool
+        $this->connectionPool = new ConnectionPool($config->toArray());
+        $this->httpClient = $this->connectionPool->getConnection();
         
+        // Initialize cache
         $this->cache = $cache ?? new AdvancedCache($config->getCacheDir());
+        
+        // Initialize managers and processors
         $this->throttleManager = new ThrottleManager($config->getThrottleDelay());
-        $this->logger = $logger ?? new NullLogger();
+        $this->batchProcessor = new BatchProcessor($this, $this->logger);
+        $this->queueOptimizer = new RequestQueueOptimizer($this->logger);
     }
 
     public function execute(AbstractOperation $operation): PromiseInterface
@@ -126,23 +139,54 @@ class Client
         );
     }
 
+    public function processBatch(array $operations): array
+    {
+        return $this->batchProcessor->processBatch($operations);
+    }
+
+    public function queueRequest(AbstractOperation $operation, int $priority = 1): void
+    {
+        $this->queueOptimizer->addRequest($operation, $priority);
+    }
+
+    public function processQueue(): array
+    {
+        $batches = $this->queueOptimizer->optimizeQueue();
+        $results = [];
+
+        foreach ($batches as $type => $operations) {
+            try {
+                $batchResults = $this->processBatch($operations);
+                $results[$type] = $batchResults;
+            } catch (\Throwable $e) {
+                $this->logger->error('Error processing queue batch', [
+                    'type' => $type,
+                    'error' => $e->getMessage()
+                ]);
+                $results[$type] = null;
+            }
+        }
+
+        return $results;
+    }
+
     private function createRequest(AbstractOperation $operation): RequestInterface
-{
-    $baseUrl = sprintf(
-        'https://%s',
-        $this->config->getMarketplace()
-    );
-    
-    return new Request(
-        $operation->getMethod(),
-        $baseUrl . $operation->getPath(),
-        [
-            'Content-Type' => 'application/json',
-            'Accept' => 'application/json'
-        ],
-        json_encode($operation->getRequest()->toArray())
-    );
-}
+    {
+        $baseUrl = sprintf(
+            'https://%s',
+            $this->config->getMarketplace()
+        );
+        
+        return new Request(
+            $operation->getMethod(),
+            $baseUrl . $operation->getPath(),
+            [
+                'Content-Type' => 'application/json',
+                'Accept' => 'application/json'
+            ],
+            json_encode($operation->getRequest()->toArray())
+        );
+    }
 
     private function cacheResponse(string $cacheKey, array $data): void
     {
@@ -195,5 +239,12 @@ class Client
     {
         $responseClass = $operation->getResponseClass();
         return new $responseClass($data);
+    }
+
+    public function __destruct()
+    {
+        if (isset($this->connectionPool)) {
+            $this->connectionPool->closeAll();
+        }
     }
 }
