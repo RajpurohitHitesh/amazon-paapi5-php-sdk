@@ -15,6 +15,7 @@ use AmazonPaapi5\Exceptions\ApiException;
 use AmazonPaapi5\Exceptions\AuthenticationException;
 use AmazonPaapi5\Exceptions\RequestException;
 use AmazonPaapi5\Exceptions\ThrottleException;
+use AmazonPaapi5\Monitoring\Monitor;
 use GuzzleHttp\Client as GuzzleClient;
 use GuzzleHttp\Exception\RequestException as GuzzleRequestException;
 use GuzzleHttp\Promise\PromiseInterface;
@@ -36,14 +37,17 @@ class Client
     private BatchProcessor $batchProcessor;
     private RequestQueueOptimizer $queueOptimizer;
     private LoggerInterface $logger;
+    private Monitor $monitor;
 
     public function __construct(
         Config $config,
         ?CacheItemPoolInterface $cache = null,
         ?LoggerInterface $logger = null
     ) {
+        // Initialize basic components
         $this->config = $config;
         $this->logger = $logger ?? new NullLogger();
+        $this->monitor = new Monitor($this->logger);
         
         // Initialize credential manager and signer
         $this->credentialManager = new CredentialManager($config);
@@ -53,8 +57,13 @@ class Client
             $config->getRegion()
         );
         
-        // Initialize connection pool
-        $this->connectionPool = new ConnectionPool($config->toArray());
+        // Initialize connection pool with security settings
+        $this->connectionPool = new ConnectionPool([
+            'verify_ssl' => $config->getVerifySsl(),
+            'tls_version' => $config->getTlsVersion(),
+            'request_timeout' => $config->getRequestTimeout(),
+            'connection_timeout' => $config->getConnectionTimeout()
+        ]);
         $this->httpClient = $this->connectionPool->getConnection();
         
         // Initialize cache
@@ -74,18 +83,22 @@ class Client
 
     public function sendAsync(AbstractOperation $operation): PromiseInterface
     {
+        $requestId = $this->monitor->startRequest(get_class($operation));
         $cacheKey = $this->generateCacheKey($operation);
 
         try {
             if ($this->cache->hasItem($cacheKey)) {
                 $item = $this->cache->getItem($cacheKey);
                 if ($item->isHit()) {
+                    $this->monitor->recordCacheResult(true);
                     $this->logger->debug('Cache hit', ['operation' => get_class($operation)]);
+                    $this->monitor->endRequest($requestId, true);
                     return \GuzzleHttp\Promise\promise_for(
                         $this->createResponse($operation, $item->get())
                     );
                 }
             }
+            $this->monitor->recordCacheResult(false);
         } catch (\Exception $e) {
             $this->logger->warning('Cache error', [
                 'error' => $e->getMessage(),
@@ -94,7 +107,7 @@ class Client
         }
 
         return $this->throttleManager->throttle(
-            function () use ($operation, $cacheKey) {
+            function () use ($operation, $cacheKey, $requestId) {
                 $request = $this->createRequest($operation);
                 $signedRequest = $this->signer->signRequest($request);
 
@@ -104,7 +117,7 @@ class Client
                 ]);
 
                 return $this->httpClient->sendAsync($signedRequest)->then(
-                    function ($response) use ($operation, $cacheKey) {
+                    function ($response) use ($operation, $cacheKey, $requestId) {
                         $statusCode = $response->getStatusCode();
                         $data = json_decode((string)$response->getBody(), true);
 
@@ -115,21 +128,25 @@ class Client
                         try {
                             $responseObj = $this->createResponse($operation, $data);
                             $this->cacheResponse($cacheKey, $data);
+                            $this->monitor->endRequest($requestId, true);
                             return $responseObj;
                         } catch (\Exception $e) {
+                            $this->monitor->endRequest($requestId, false, 'processing_error');
                             throw new ApiException(
                                 'Failed to process response: ' . $e->getMessage(),
                                 ['response_data' => $data]
                             );
                         }
                     },
-                    function ($exception) {
+                    function ($exception) use ($requestId) {
                         if ($exception instanceof GuzzleRequestException) {
+                            $this->monitor->endRequest($requestId, false, 'network_error');
                             throw new RequestException(
                                 'Request failed: ' . $exception->getMessage(),
                                 ['code' => $exception->getCode()]
                             );
                         }
+                        $this->monitor->endRequest($requestId, false, 'unknown_error');
                         throw new ApiException('Unexpected error: ' . $exception->getMessage());
                     }
                 );
@@ -182,7 +199,8 @@ class Client
             $baseUrl . $operation->getPath(),
             [
                 'Content-Type' => 'application/json',
-                'Accept' => 'application/json'
+                'Accept' => 'application/json',
+                'Accept-Encoding' => 'gzip'
             ],
             json_encode($operation->getRequest()->toArray())
         );
@@ -194,6 +212,7 @@ class Client
             $cacheItem = $this->cache->getItem($cacheKey);
             $cacheItem->set($data)->expiresAfter($this->config->getCacheTtl());
             $this->cache->save($cacheItem);
+            $this->logger->debug('Response cached', ['key' => $cacheKey]);
         } catch (\Exception $e) {
             $this->logger->warning('Failed to cache response', [
                 'key' => $cacheKey,
@@ -215,23 +234,27 @@ class Client
     {
         $message = $data['Errors'][0]['Message'] ?? 'Unknown error';
         $code = $data['Errors'][0]['Code'] ?? 'Unknown';
+        $details = $data['Errors'][0]['Details'] ?? [];
 
-        $this->logger->error('API error', [
+        $errorContext = [
             'status_code' => $statusCode,
             'error_code' => $code,
-            'message' => $message
-        ]);
+            'message' => $message,
+            'details' => $details
+        ];
+
+        $this->logger->error('API error', $errorContext);
 
         switch ($statusCode) {
             case 401:
             case 403:
-                throw new AuthenticationException($message, ['code' => $code]);
+                throw new AuthenticationException($message, $errorContext);
             case 429:
-                throw new ThrottleException($message, ['code' => $code]);
+                throw new ThrottleException($message, $errorContext);
             case 400:
-                throw new RequestException($message, ['code' => $code]);
+                throw new RequestException($message, $errorContext);
             default:
-                throw new ApiException($message, ['code' => $code]);
+                throw new ApiException($message, $errorContext);
         }
     }
 
@@ -241,149 +264,15 @@ class Client
         return new $responseClass($data);
     }
 
+    public function getMetrics(): array
+    {
+        return $this->monitor->getMetrics();
+    }
+
     public function __destruct()
     {
         if (isset($this->connectionPool)) {
             $this->connectionPool->closeAll();
         }
     }
-
-    private array $config;
-    
-    private const SECURITY_DEFAULTS = [
-        'secure_storage_dir' => null,
-        'encryption_key' => null,
-        'tls_version' => 'TLS1.2',
-        'verify_ssl' => true,
-        'signature_version' => '2.0',
-        'request_timeout' => 30,
-        'connection_timeout' => 5
-    ];
-
-    public function __construct(array $config)
-    {
-        $this->config = array_merge(self::SECURITY_DEFAULTS, $config);
-    }
-
-    public function getSecureStorageDir(): ?string
-    {
-        return $this->config['secure_storage_dir'];
-    }
-
-    public function getEncryptionKey(): ?string
-    {
-        return $this->config['encryption_key'];
-    }
-
-    public function getTlsVersion(): string
-    {
-        return $this->config['tls_version'];
-    }
-
-    public function getVerifySsl(): bool
-    {
-        return $this->config['verify_ssl'];
-    }
-
-    public function getSignatureVersion(): string
-    {
-        return $this->config['signature_version'];
-    }
-
-    // In the Client class, add the following property
-private Monitor $monitor;
-
-// In the constructor, add:
-public function __construct(
-    Config $config,
-    ?CacheItemPoolInterface $cache = null,
-    ?LoggerInterface $logger = null
-) {
-    // ... existing initialization code ...
-    
-    $this->monitor = new Monitor($logger);
-}
-
-// In the sendAsync method, modify to use monitoring:
-public function sendAsync(AbstractOperation $operation): PromiseInterface
-{
-    $requestId = $this->monitor->startRequest(get_class($operation));
-    $cacheKey = $this->generateCacheKey($operation);
-
-    try {
-        if ($this->cache->hasItem($cacheKey)) {
-            $item = $this->cache->getItem($cacheKey);
-            if ($item->isHit()) {
-                $this->monitor->recordCacheResult(true);
-                $this->logger->debug('Cache hit', ['operation' => get_class($operation)]);
-                $this->monitor->endRequest($requestId, true);
-                return \GuzzleHttp\Promise\promise_for(
-                    $this->createResponse($operation, $item->get())
-                );
-            }
-        }
-        $this->monitor->recordCacheResult(false);
-    } catch (\Exception $e) {
-        $this->logger->warning('Cache error', [
-            'error' => $e->getMessage(),
-            'operation' => get_class($operation)
-        ]);
-    }
-
-    return $this->throttleManager->throttle(
-        function () use ($operation, $cacheKey, $requestId) {
-            $request = $this->createRequest($operation);
-            $signedRequest = $this->signer->signRequest($request);
-
-            $this->logger->info('Sending request', [
-                'operation' => get_class($operation),
-                'path' => $operation->getPath()
-            ]);
-
-            return $this->httpClient->sendAsync($signedRequest)->then(
-                function ($response) use ($operation, $cacheKey, $requestId) {
-                    $statusCode = $response->getStatusCode();
-                    $data = json_decode((string)$response->getBody(), true);
-
-                    if ($statusCode >= 400) {
-                        $this->handleError($data, $statusCode);
-                    }
-
-                    try {
-                        $responseObj = $this->createResponse($operation, $data);
-                        $this->cacheResponse($cacheKey, $data);
-                        $this->monitor->endRequest($requestId, true);
-                        return $responseObj;
-                    } catch (\Exception $e) {
-                        $this->monitor->endRequest($requestId, false, 'other');
-                        throw new ApiException(
-                            'Failed to process response: ' . $e->getMessage(),
-                            ['response_data' => $data]
-                        );
-                    }
-                },
-                function ($exception) use ($requestId) {
-                    if ($exception instanceof GuzzleRequestException) {
-                        $this->monitor->endRequest($requestId, false, 'network');
-                        throw new RequestException(
-                            'Request failed: ' . $exception->getMessage(),
-                            ['code' => $exception->getCode()]
-                        );
-                    }
-                    $this->monitor->endRequest($requestId, false, 'other');
-                    throw new ApiException('Unexpected error: ' . $exception->getMessage());
-                }
-            );
-        },
-        [],
-        $operation->getMarketplace()
-    );
-}
-
-// Add a new method to get monitoring metrics
-public function getMetrics(): array
-{
-    return $this->monitor->getMetrics();
-}
-  
 }
