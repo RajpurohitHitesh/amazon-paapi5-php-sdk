@@ -255,7 +255,7 @@ class Client
                 case 404:
                     throw new RequestException("Resource not found (404). Check your marketplace and credentials.", $statusCode);
                 case 400:
-                    throw new RequestException($message, $statusCode);
+                    throw new RequestException($message, ['status_code' => $statusCode]);
                 default:
                     throw new ApiException($message, $statusCode);
             }
