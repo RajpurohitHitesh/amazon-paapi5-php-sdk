@@ -20,6 +20,10 @@ class CredentialManager
     private array $cachedCredentials = [];
     private const ENCRYPTION_ALGO = 'aes-256-gcm';
     
+    // Sodium constants with fallbacks
+    private const SODIUM_NONCE_BYTES = 24; // SODIUM_CRYPTO_SECRETBOX_NONCEBYTES
+    private const SODIUM_KEY_BYTES = 32;   // SODIUM_CRYPTO_SECRETBOX_KEYBYTES
+    
     public function __construct(
         Config $config,
         ?LoggerInterface $logger = null
@@ -28,10 +32,41 @@ class CredentialManager
         $this->logger = $logger ?? new NullLogger();
         $this->encryptionKey = $config->getEncryptionKey();
         
+        // Check sodium availability
+        $this->checkSodiumSupport();
+        
         $this->setCredentials(
             $config->getAccessKey(),
             $config->getSecretKey()
         );
+    }
+
+    private function checkSodiumSupport(): void
+    {
+        if (!extension_loaded('sodium')) {
+            throw new SecurityException(
+                'Sodium extension is required for encryption but not available'
+            );
+        }
+
+        // Check if constants are available
+        if (!defined('SODIUM_CRYPTO_SECRETBOX_NONCEBYTES')) {
+            $this->logger->warning('SODIUM_CRYPTO_SECRETBOX_NONCEBYTES constant not defined, using fallback');
+        }
+    }
+
+    private function getSodiumNonceBytes(): int
+    {
+        return defined('SODIUM_CRYPTO_SECRETBOX_NONCEBYTES') 
+            ? SODIUM_CRYPTO_SECRETBOX_NONCEBYTES 
+            : self::SODIUM_NONCE_BYTES;
+    }
+
+    private function getSodiumKeyBytes(): int
+    {
+        return defined('SODIUM_CRYPTO_SECRETBOX_KEYBYTES') 
+            ? SODIUM_CRYPTO_SECRETBOX_KEYBYTES 
+            : self::SODIUM_KEY_BYTES;
     }
 
     public function setCredentials(string $accessKey, string $secretKey): void
@@ -83,8 +118,14 @@ class CredentialManager
     private function encrypt(string $data): string
     {
         try {
-            // Generate a random nonce
-            $nonce = random_bytes(SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
+            // Generate a random nonce with fallback
+            $nonceBytes = $this->getSodiumNonceBytes();
+            $nonce = random_bytes($nonceBytes);
+            
+            // Check if sodium functions are available
+            if (!function_exists('sodium_crypto_secretbox')) {
+                throw new SecurityException('Sodium encryption functions not available');
+            }
             
             // Encrypt using libsodium (more secure than openssl)
             $encrypted = sodium_crypto_secretbox(
@@ -110,9 +151,19 @@ class CredentialManager
         try {
             $decoded = base64_decode($data);
             
-            // Extract nonce and encrypted data
-            $nonce = mb_substr($decoded, 0, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES, '8bit');
-            $encrypted = mb_substr($decoded, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES, null, '8bit');
+            if ($decoded === false) {
+                throw new SecurityException('Invalid base64 data');
+            }
+            
+            // Extract nonce and encrypted data with fallback
+            $nonceBytes = $this->getSodiumNonceBytes();
+            $nonce = mb_substr($decoded, 0, $nonceBytes, '8bit');
+            $encrypted = mb_substr($decoded, $nonceBytes, null, '8bit');
+            
+            // Check if sodium functions are available
+            if (!function_exists('sodium_crypto_secretbox_open')) {
+                throw new SecurityException('Sodium decryption functions not available');
+            }
             
             // Decrypt using libsodium
             $decrypted = sodium_crypto_secretbox_open(
@@ -122,7 +173,7 @@ class CredentialManager
             );
             
             if ($decrypted === false) {
-                throw new SecurityException('Decryption failed');
+                throw new SecurityException('Decryption failed - invalid data or key');
             }
             
             return $decrypted;
@@ -148,7 +199,14 @@ class CredentialManager
     private function getOrGenerateKey(): string
     {
         if (!$this->encryptionKey) {
-            $this->encryptionKey = sodium_crypto_secretbox_keygen();
+            // Check if sodium_crypto_secretbox_keygen is available
+            if (function_exists('sodium_crypto_secretbox_keygen')) {
+                $this->encryptionKey = sodium_crypto_secretbox_keygen();
+            } else {
+                // Fallback key generation
+                $keyBytes = $this->getSodiumKeyBytes();
+                $this->encryptionKey = random_bytes($keyBytes);
+            }
             $this->logger->info('Generated new encryption key');
         }
         return $this->encryptionKey;
@@ -162,7 +220,12 @@ class CredentialManager
             $currentSecretKey = $this->getSecretKey();
             
             // Generate new key
-            $this->encryptionKey = sodium_crypto_secretbox_keygen();
+            if (function_exists('sodium_crypto_secretbox_keygen')) {
+                $this->encryptionKey = sodium_crypto_secretbox_keygen();
+            } else {
+                $keyBytes = $this->getSodiumKeyBytes();
+                $this->encryptionKey = random_bytes($keyBytes);
+            }
             
             // Re-encrypt with new key
             $this->setCredentials($currentAccessKey, $currentSecretKey);
@@ -183,5 +246,29 @@ class CredentialManager
         $this->cachedCredentials = [];
         
         $this->logger->info('Credentials cleared successfully');
+    }
+
+    /**
+     * Check if Sodium extension is properly configured
+     */
+    public function isSodiumAvailable(): bool
+    {
+        return extension_loaded('sodium') && 
+               function_exists('sodium_crypto_secretbox') &&
+               function_exists('sodium_crypto_secretbox_open');
+    }
+
+    /**
+     * Get system information for debugging
+     */
+    public function getSystemInfo(): array
+    {
+        return [
+            'sodium_extension_loaded' => extension_loaded('sodium'),
+            'sodium_constants_available' => defined('SODIUM_CRYPTO_SECRETBOX_NONCEBYTES'),
+            'sodium_functions_available' => function_exists('sodium_crypto_secretbox'),
+            'php_version' => PHP_VERSION,
+            'using_fallback_constants' => !defined('SODIUM_CRYPTO_SECRETBOX_NONCEBYTES')
+        ];
     }
 }
