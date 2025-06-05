@@ -100,6 +100,13 @@ This SDK is packed with features to make your development experience smooth and 
     *   Automatic detection and configuration of regional API endpoints via the `Marketplace` class.
 *   **Robust Security:**
     *   **Credential Encryption:** Uses OpenSSL (AES-256-CBC) to encrypt your AWS Access Key and Secret Key when an `encryption_key` is provided in the configuration. Managed by `Security\CredentialManager`.
+    *   **Advanced Encryption with Intelligent Fallback:**
+    *   **Primary Method - Sodium:** High-performance libsodium encryption with ChaCha20-Poly1305 authenticated encryption
+    *   **Fallback Method - OpenSSL:** AES-256-GCM encryption when Sodium is unavailable
+    *   **Automatic Detection:** Seamlessly switches between encryption methods based on server capabilities
+    *   **Cross-Platform Compatibility:** Works on any server configuration
+    *   **Method Migration Support:** Smooth transition between encryption methods without data loss
+    *   **Encryption Method Tagging:** Each encrypted credential is tagged with its encryption method for proper decryption
     *   **AWS Signature Version 4:** All API requests are securely signed. Handled by `Auth\AwsV4Signer`.
     *   **HTTPS Enforcement:** All communication with the API is over HTTPS.
 *   **Performance Optimizations:**
@@ -118,13 +125,24 @@ This SDK is packed with features to make your development experience smooth and 
 ## 3. Requirements
 
 *   **PHP:** 8.0 or higher
-*   **Extensions:**
+*   **Required Extensions:**
     *   `curl` (usually enabled by default)
     *   `json` (usually enabled by default)
-    *   `openssl` (if using credential encryption, usually enabled by default)
+    *   `openssl` (for encryption fallback, usually enabled by default)
+    *   `sodium` (recommended for optimal security and performance)
+*   **Encryption Method Priority:**
+    1. **Sodium** (preferred) - If extension is available
+    2. **OpenSSL** (fallback) - If Sodium is not available
+    3. **Installation fails** - If neither is available
 *   **Composer:** For managing dependencies.
 *   **GuzzleHttp:** `^7.0` (automatically installed as a dependency).
 *   **PSR-6 Cache Implementation (Optional):** If you plan to use an external cache like Redis or Memcached, you'll need a corresponding PSR-6 adapter (e.g., `symfony/cache`).
+
+### Installation Options
+
+**Standard Installation (Recommended):**
+```sh
+composer require rajpurohithitesh/amazon-paapi5-php-sdk
 
 ## 4. Installation
 
@@ -236,6 +254,31 @@ try {
 *   If you provide an `encryption_key`, the SDK's `CredentialManager` will use it to encrypt your `access_key` and `secret_key` in memory. This adds an extra layer of protection.
 *   The `encryption_key` itself must be kept secure. Do **not** hardcode it directly in version-controlled files for production environments. Use environment variables or a secure secrets management system.
 *   If `encryption_key` is empty or not provided, your `access_key` and `secret_key` will be used as-is for signing requests (which is standard for AWS SDKs), but they won't have the additional SDK-level encryption wrapper.
+
+### Encryption System Configuration
+
+The SDK features an intelligent dual-encryption system:
+
+```php
+// Basic configuration - SDK automatically chooses best encryption method
+$sdkConfig = [
+    'access_key' => 'YOUR_AWS_ACCESS_KEY',
+    'secret_key' => 'YOUR_AWS_SECRET_KEY',
+    'partner_tag' => 'YOUR_PARTNER_TAG',
+    'marketplace' => 'www.amazon.com',
+    'encryption_key' => getenv('AMAZON_SDK_ENCRYPTION_KEY') ?: 'your-secure-32-char-key-here-123456',
+];
+
+$config = new Config($sdkConfig);
+$credentialManager = new CredentialManager($config);
+
+// Check active encryption method
+echo "Using encryption: " . $credentialManager->getActiveEncryptionMethod() . "\n";
+
+// Get detailed system information
+$systemInfo = $credentialManager->getSystemInfo();
+print_r($systemInfo);
+```
 
 ### Initializing the Client (`Client` class)
 
@@ -923,6 +966,13 @@ try {
 *   **Regularly Rotate Keys:** Periodically rotate your AWS Access Keys as a security best practice.
 *   **Validate Inputs:** Sanitize and validate any user-provided input that might be used in API requests to prevent injection-style attacks (though PAAPI is generally less susceptible to typical web vulnerabilities like XSS/SQLi in its direct use).
 *   **Keep SDK Updated:** Regularly update the SDK to the latest version to benefit from security patches and improvements.
+*   **Encryption Method Best Practices:**
+    *   **Prefer Sodium:** Always use Sodium for new deployments (better security + performance)
+    *   **Monitor Method:** Use logging to track which encryption method is active
+    *   **Plan Migrations:** Test encryption method switches in staging before production
+    *   **Fallback Strategy:** Ensure OpenSSL is properly configured as backup
+    *   **Method Testing:** Regularly test encryption functionality with `testEncryption()`
+    *   **Key Rotation:** Implement periodic encryption key rotation for enhanced security
 
 ## 12. Performance Considerations
 
