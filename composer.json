@@ -4,6 +4,10 @@
     "type": "library",
     "require": {
         "php": "^8.0",
+        "ext-sodium": "*",
+        "ext-openssl": "*",
+        "ext-json": "*",
+        "ext-curl": "*",
         "guzzlehttp/guzzle": "^7.0",
         "psr/cache": "^1.0 || ^2.0 || ^3.0",
         "psr/log": "^1.1 || ^2.0 || ^3.0"
@@ -12,6 +16,10 @@
         "phpunit/phpunit": "^9.5",
         "squizlabs/php_codesniffer": "^3.6",
         "phpstan/phpstan": "^1.0"
+    },
+    "suggest": {
+        "ext-sodium": "Required for advanced credential encryption features",
+        "symfony/cache": "For better caching with Redis/Memcached support"
     },
     "autoload": {
         "psr-4": {
@@ -26,7 +34,10 @@
     "scripts": {
         "test": "phpunit",
         "cs": "phpcs --standard=PSR12 src tests",
-        "analyse": "phpstan analyse src tests --level=7"
+        "analyse": "phpstan analyse src tests --level=7",
+        "post-install-cmd": [
+            "@php -r \"if (!extension_loaded('sodium')) { echo 'Warning: Sodium extension is not loaded. Please enable it in php.ini\\n'; }\""
+        ]
     },
     "license": "Apache-2.0",
     "authors": [
@@ -37,6 +48,7 @@
     "minimum-stability": "stable",
     "config": {
         "sort-packages": true,
-        "optimize-autoloader": true
+        "optimize-autoloader": true,
+        "platform-check": true
     }
 }
