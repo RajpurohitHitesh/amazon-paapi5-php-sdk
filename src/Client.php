@@ -230,8 +230,39 @@ class Client
         );
     }
 
-    private function handleError(array $data, int $statusCode): void
+    private function handleError($data, int $statusCode): void
     {
+        // Handle null data case (404 responses may have empty bodies)
+        if ($data === null) {
+            $message = 'Empty response from API with status code ' . $statusCode;
+            
+            $errorContext = [
+                'status_code' => $statusCode,
+                'error_code' => 'EmptyResponse',
+                'message' => $message
+            ];
+            
+            if ($this->logger) {
+                $this->logger->error('API error with null response', $errorContext);
+            }
+            
+            switch ($statusCode) {
+                case 401:
+                case 403:
+                    throw new AuthenticationException($message, $statusCode);
+                case 429:
+                    throw new ThrottleException($message, $statusCode);
+                case 404:
+                    throw new RequestException("Resource not found (404). Check your marketplace and credentials.", $statusCode);
+                case 400:
+                    throw new RequestException($message, $statusCode);
+                default:
+                    throw new ApiException($message, $statusCode);
+            }
+            return;
+        }
+        
+        // Original code for array data
         $message = $data['Errors'][0]['Message'] ?? 'Unknown error';
         $code = $data['Errors'][0]['Code'] ?? 'Unknown';
         $details = $data['Errors'][0]['Details'] ?? [];
@@ -243,7 +274,9 @@ class Client
             'details' => $details
         ];
 
-        $this->logger->error('API error', $errorContext);
+        if ($this->logger) {
+            $this->logger->error('API error', $errorContext);
+        }
 
         switch ($statusCode) {
             case 401:
