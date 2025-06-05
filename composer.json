@@ -18,7 +18,6 @@
         "phpstan/phpstan": "^1.0"
     },
     "suggest": {
-        "ext-sodium": "Required for advanced credential encryption features",
         "symfony/cache": "For better caching with Redis/Memcached support"
     },
     "autoload": {
@@ -36,7 +35,9 @@
         "cs": "phpcs --standard=PSR12 src tests",
         "analyse": "phpstan analyse src tests --level=7",
         "post-install-cmd": [
-            "@php -r \"if (!extension_loaded('sodium')) { echo 'Warning: Sodium extension is not loaded. Please enable it in php.ini\\n'; }\""
+            "@php -r \"echo 'Amazon PA-API5 PHP SDK installed successfully!\\n';\"",
+            "@php -r \"if (extension_loaded('sodium')) { echo 'Sodium extension detected - Using enhanced encryption\\n'; } else { echo 'Warning: Sodium extension not available, using OpenSSL fallback\\n'; }\"",
+            "@php -r \"if (!extension_loaded('openssl')) { echo 'Error: OpenSSL extension is required\\n'; exit(1); }\""
         ]
     },
     "license": "Apache-2.0",
@@ -50,5 +51,14 @@
         "sort-packages": true,
         "optimize-autoloader": true,
         "platform-check": true
-    }
+    },
+    "keywords": [
+        "amazon",
+        "paapi5",
+        "product-advertising-api",
+        "affiliate",
+        "ecommerce",
+        "openssl-fallback",
+        "sodium-encryption"
+    ]
 }
