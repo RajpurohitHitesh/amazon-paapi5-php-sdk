@@ -40,7 +40,7 @@ class CredentialManager
     ) {
         $this->config = $config;
         $this->logger = $logger ?? new NullLogger();
-        $this->encryptionKey = $config->getEncryptionKey() ?? '';
+        $this->encryptionKey = $encryptionKey ?? '';
         
         // Determine and initialize encryption method
         $this->initializeEncryptionMethod();
