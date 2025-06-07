@@ -113,7 +113,8 @@ class Client
 
                 $this->logger->info('Sending request', [
                     'operation' => get_class($operation),
-                    'path' => $operation->getPath()
+                    'path' => $operation->getPath(),
+                    'url' => (string)$signedRequest->getUri()
                 ]);
 
                 return $this->httpClient->sendAsync($signedRequest)->then(
@@ -189,10 +190,20 @@ class Client
 
     private function createRequest(AbstractOperation $operation): RequestInterface
     {
+        // Get the correct API host from marketplace configuration
+        $apiHost = Marketplace::getHost($this->config->getMarketplace());
+        
         $baseUrl = sprintf(
             'https://%s',
-            $this->config->getMarketplace()
+            $apiHost
         );
+        
+        $this->logger->debug('Creating request', [
+            'marketplace' => $this->config->getMarketplace(),
+            'api_host' => $apiHost,
+            'base_url' => $baseUrl,
+            'path' => $operation->getPath()
+        ]);
         
         return new Request(
             $operation->getMethod(),
@@ -249,13 +260,13 @@ class Client
             switch ($statusCode) {
                 case 401:
                 case 403:
-                    throw new AuthenticationException($message, ['status_code' => $statusCode]);
+                    throw new AuthenticationException("Authentication failed. Check your Access Key, Secret Key, and Partner Tag. Status: $statusCode", ['status_code' => $statusCode]);
                 case 429:
-                    throw new ThrottleException($message, ['status_code' => $statusCode]);
+                    throw new ThrottleException("Rate limit exceeded. Increase throttle_delay. Status: $statusCode", ['status_code' => $statusCode]);
                 case 404:
-                    throw new RequestException("Resource not found (404). Check your marketplace and credentials.", ['status_code' => $statusCode]);
+                    throw new RequestException("Resource not found (404). Possible causes: 1) Invalid marketplace configuration, 2) Incorrect credentials, 3) Wrong API endpoint. Check your marketplace and partner tag settings. Suggestion: Check request parameters and try again.", ['status_code' => $statusCode]);
                 case 400:
-                    throw new RequestException($message, ['status_code' => $statusCode]);
+                    throw new RequestException("Bad Request (400). Check your request parameters.", ['status_code' => $statusCode]);
                 default:
                     throw new ApiException($message, ['status_code' => $statusCode]);
             }

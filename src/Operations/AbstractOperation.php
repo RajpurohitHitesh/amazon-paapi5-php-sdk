@@ -33,4 +33,18 @@ abstract class AbstractOperation
     {
         return $this->request;
     }
+
+    // Add missing methods
+    public function getMarketplace(): string
+    {
+        // This should return the marketplace from the client's config
+        if (isset($this->client)) {
+            return $this->client->getConfig()->getMarketplace();
+        }
+        return 'www.amazon.com'; // fallback
+    }
+
+    abstract public function getResponseClass(): string;
+    
+    abstract public function executeAsync(): \GuzzleHttp\Promise\PromiseInterface;
 }
