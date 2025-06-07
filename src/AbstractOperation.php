@@ -11,7 +11,7 @@ abstract class AbstractOperation
 {
     protected string $path;
     protected string $method;
-    protected AbstractRequest $request;
+    protected mixed $request; // Changed from AbstractRequest to mixed
     protected Client $client;
 
     public function getPath(): string
@@ -24,7 +24,7 @@ abstract class AbstractOperation
         return $this->method;
     }
 
-    public function getRequest(): AbstractRequest
+    public function getRequest(): mixed // Changed return type
     {
         return $this->request;
     }

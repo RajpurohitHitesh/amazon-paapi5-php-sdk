@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace AmazonPaapi5\Models\Request;
 
-class GetItemsRequest
+class GetItemsRequest extends AbstractRequest
 {
     private string $partnerTag;
     private string $partnerType = 'Associates';
