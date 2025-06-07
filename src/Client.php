@@ -249,15 +249,15 @@ class Client
             switch ($statusCode) {
                 case 401:
                 case 403:
-                    throw new AuthenticationException($message, $statusCode);
+                    throw new AuthenticationException($message, ['status_code' => $statusCode]);
                 case 429:
-                    throw new ThrottleException($message, $statusCode);
+                    throw new ThrottleException($message, ['status_code' => $statusCode]);
                 case 404:
-                    throw new RequestException("Resource not found (404). Check your marketplace and credentials.", $statusCode);
+                    throw new RequestException("Resource not found (404). Check your marketplace and credentials.", ['status_code' => $statusCode]);
                 case 400:
                     throw new RequestException($message, ['status_code' => $statusCode]);
                 default:
-                    throw new ApiException($message, $statusCode);
+                    throw new ApiException($message, ['status_code' => $statusCode]);
             }
             return;
         }
