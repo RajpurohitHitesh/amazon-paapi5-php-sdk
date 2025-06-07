@@ -22,4 +22,10 @@ class SearchItems extends AbstractOperation
     {
         return $this->client->sendAsync($this);
     }
+
+    // Add missing method
+    public function getResponseClass(): string
+    {
+        return \AmazonPaapi5\Models\Response\SearchItemsResponse::class;
+    }
 }

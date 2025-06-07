@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace AmazonPaapi5\Operations;
 
+use AmazonPaapi5\AbstractOperation;
 use AmazonPaapi5\Models\Request\GetVariationsRequest;
 use GuzzleHttp\Promise\PromiseInterface;
 
@@ -20,5 +21,10 @@ class GetVariations extends AbstractOperation
     public function executeAsync(): PromiseInterface
     {
         return $this->client->sendAsync($this);
+    }
+
+    public function getResponseClass(): string
+    {
+        return \AmazonPaapi5\Models\Response\GetVariationsResponse::class;
     }
 }

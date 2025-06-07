@@ -39,5 +39,7 @@ abstract class AbstractOperation
         return null;
     }
 
+    abstract public function getResponseClass(): string;
+
     abstract public function executeAsync(): PromiseInterface;
 }
