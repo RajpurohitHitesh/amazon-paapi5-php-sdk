@@ -15,7 +15,8 @@
         "getvariations",
         "getbrowsenodes",
         "ProductAdvertisingAPI",
-        "guzzle7"
+        "guzzle7",
+        "guzzle-compatible"
     ],
     "homepage": "https://webservices.amazon.com/paapi5/documentation/index.html",
     "license": "Apache-2.0",
@@ -41,7 +42,11 @@
         "test": "vendor/bin/phpunit",
         "phpcs": "vendor/bin/phpcs --standard=PSR12 src/ test/",
         "phpcbf": "vendor/bin/phpcbf --standard=PSR12 src/ test/",
-        "php-cs-fixer": "vendor/bin/php-cs-fixer fix --allow-risky=yes --using-cache=no"
+        "php-cs-fixer": "vendor/bin/php-cs-fixer fix --allow-risky=yes --using-cache=no",
+        "post-install-cmd": [
+            "@php -r \"echo 'Amazon PA-API5 PHP SDK with Guzzle 7 support installed successfully!\\n';\"",
+            "@php -r \"if (class_exists('\\\\GuzzleHttp\\\\Psr7\\\\Query')) { echo 'Guzzle 7 detected - Using new Query::build method\\n'; } else { echo 'Guzzle 6 detected - Using legacy build_query function\\n'; }\""
+        ]
     },
     "autoload": {
         "psr-4": { 

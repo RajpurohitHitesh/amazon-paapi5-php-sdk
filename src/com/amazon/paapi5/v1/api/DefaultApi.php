@@ -21,6 +21,7 @@ use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\RequestException;
 use GuzzleHttp\Psr7\MultipartStream;
 use GuzzleHttp\Psr7\Request;
+use GuzzleHttp\Psr7\Query;
 use GuzzleHttp\RequestOptions;
 use Amazon\ProductAdvertisingAPI\v1\ApiException;
 use Amazon\ProductAdvertisingAPI\v1\Configuration;
@@ -73,6 +74,47 @@ class DefaultApi
     public function getConfig()
     {
         return $this->config;
+    }
+
+    /**
+     * Build query string for Guzzle 7 compatibility
+     *
+     * @param array $params
+     * @return string
+     */
+    private function buildQuery(array $params): string
+    {
+        if (class_exists('\GuzzleHttp\Psr7\Query')) {
+            return Query::build($params);
+        }
+        
+        // Fallback for older Guzzle versions
+        if (function_exists('\GuzzleHttp\Psr7\build_query')) {
+            return \GuzzleHttp\Psr7\build_query($params);
+        }
+        
+        // Native PHP fallback
+        return http_build_query($params, '', '&', PHP_QUERY_RFC3986);
+    }
+
+    /**
+     * JSON encode for Guzzle 7 compatibility
+     *
+     * @param mixed $data
+     * @return string
+     */
+    private function jsonEncode($data): string
+    {
+        if (function_exists('\GuzzleHttp\json_encode')) {
+            return \GuzzleHttp\json_encode($data);
+        }
+        
+        // Native PHP fallback
+        $encoded = json_encode($data);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new \InvalidArgumentException('JSON encoding failed: ' . json_last_error_msg());
+        }
+        return $encoded;
     }
 
     /**
@@ -239,7 +281,7 @@ class DefaultApi
         $request = $this->getBrowseNodesRequest($getBrowseNodesRequest);
 
         return $this->client
-            ->sendAsync($request, $this->createHttpClientOption())
+            ->sendAsync($request, $this->createHttpClientOptions())
             ->then(
                 function ($response) use ($returnType) {
                     $responseBody = $response->getBody();
@@ -340,7 +382,7 @@ class DefaultApi
             $httpBody = $_tempBody;
             // \stdClass has no __toString(), so we should encode it manually
             if ($httpBody instanceof \stdClass && $headers['Content-Type'] === 'application/json') {
-                $httpBody = \GuzzleHttp\json_encode($httpBody);
+                $httpBody = $this->jsonEncode($httpBody);
             }
         } elseif (count($formParams) > 0) {
             if ($multipart) {
@@ -354,10 +396,10 @@ class DefaultApi
                 // for HTTP post (form)
                 $httpBody = new MultipartStream($multipartContents);
             } elseif ($headers['Content-Type'] === 'application/json') {
-                $httpBody = \GuzzleHttp\json_encode($formParams);
+                $httpBody = $this->jsonEncode($formParams);
             } else {
                 // for HTTP post (form)
-                $httpBody = \GuzzleHttp\Psr7\build_query($formParams);
+                $httpBody = $this->buildQuery($formParams);
             }
         }
 
@@ -375,7 +417,7 @@ class DefaultApi
             $headers
         );
 
-        $query = \GuzzleHttp\Psr7\build_query($queryParams);
+        $query = $this->buildQuery($queryParams);
         return new Request(
             'POST',
             $this->config->getHost() . $resourcePath . ($query ? "?{$query}" : ''),
@@ -414,7 +456,7 @@ class DefaultApi
         $request = $this->getItemsRequest($getItemsRequest);
 
         try {
-            $options = $this->createHttpClientOption();
+            $options = $this->createHttpClientOptions();
             try {
                 $response = $this->client->send($request, $options);
             } catch (RequestException $e) {
@@ -548,7 +590,7 @@ class DefaultApi
         $request = $this->getItemsRequest($getItemsRequest);
 
         return $this->client
-            ->sendAsync($request, $this->createHttpClientOption())
+            ->sendAsync($request, $this->createHttpClientOptions())
             ->then(
                 function ($response) use ($returnType) {
                     $responseBody = $response->getBody();
@@ -649,7 +691,7 @@ class DefaultApi
             $httpBody = $_tempBody;
             // \stdClass has no __toString(), so we should encode it manually
             if ($httpBody instanceof \stdClass && $headers['Content-Type'] === 'application/json') {
-                $httpBody = \GuzzleHttp\json_encode($httpBody);
+                $httpBody = $this->jsonEncode($httpBody);
             }
         } elseif (count($formParams) > 0) {
             if ($multipart) {
@@ -663,10 +705,10 @@ class DefaultApi
                 // for HTTP post (form)
                 $httpBody = new MultipartStream($multipartContents);
             } elseif ($headers['Content-Type'] === 'application/json') {
-                $httpBody = \GuzzleHttp\json_encode($formParams);
+                $httpBody = $this->jsonEncode($formParams);
             } else {
                 // for HTTP post (form)
-                $httpBody = \GuzzleHttp\Psr7\build_query($formParams);
+                $httpBody = $this->buildQuery($formParams);
             }
         }
 
@@ -684,7 +726,7 @@ class DefaultApi
             $headers
         );
 
-        $query = \GuzzleHttp\Psr7\build_query($queryParams);
+        $query = $this->buildQuery($queryParams);
         return new Request(
             'POST',
             $this->config->getHost() . $resourcePath . ($query ? "?{$query}" : ''),
@@ -723,7 +765,7 @@ class DefaultApi
         $request = $this->getVariationsRequest($getVariationsRequest);
 
         try {
-            $options = $this->createHttpClientOption();
+            $options = $this->createHttpClientOptions();
             try {
                 $response = $this->client->send($request, $options);
             } catch (RequestException $e) {
@@ -857,7 +899,7 @@ class DefaultApi
         $request = $this->getVariationsRequest($getVariationsRequest);
 
         return $this->client
-            ->sendAsync($request, $this->createHttpClientOption())
+            ->sendAsync($request, $this->createHttpClientOptions())
             ->then(
                 function ($response) use ($returnType) {
                     $responseBody = $response->getBody();
@@ -958,7 +1000,7 @@ class DefaultApi
             $httpBody = $_tempBody;
             // \stdClass has no __toString(), so we should encode it manually
             if ($httpBody instanceof \stdClass && $headers['Content-Type'] === 'application/json') {
-                $httpBody = \GuzzleHttp\json_encode($httpBody);
+                $httpBody = $this->jsonEncode($httpBody);
             }
         } elseif (count($formParams) > 0) {
             if ($multipart) {
@@ -972,10 +1014,10 @@ class DefaultApi
                 // for HTTP post (form)
                 $httpBody = new MultipartStream($multipartContents);
             } elseif ($headers['Content-Type'] === 'application/json') {
-                $httpBody = \GuzzleHttp\json_encode($formParams);
+                $httpBody = $this->jsonEncode($formParams);
             } else {
                 // for HTTP post (form)
-                $httpBody = \GuzzleHttp\Psr7\build_query($formParams);
+                $httpBody = $this->buildQuery($formParams);
             }
         }
 
@@ -993,7 +1035,7 @@ class DefaultApi
             $headers
         );
 
-        $query = \GuzzleHttp\Psr7\build_query($queryParams);
+        $query = $this->buildQuery($queryParams);
         return new Request(
             'POST',
             $this->config->getHost() . $resourcePath . ($query ? "?{$query}" : ''),
@@ -1032,7 +1074,7 @@ class DefaultApi
         $request = $this->searchItemsRequest($searchItemsRequest);
 
         try {
-            $options = $this->createHttpClientOption();
+            $options = $this->createHttpClientOptions();
             try {
                 $response = $this->client->send($request, $options);
             } catch (RequestException $e) {
@@ -1166,7 +1208,7 @@ class DefaultApi
         $request = $this->searchItemsRequest($searchItemsRequest);
 
         return $this->client
-            ->sendAsync($request, $this->createHttpClientOption())
+            ->sendAsync($request, $this->createHttpClientOptions())
             ->then(
                 function ($response) use ($returnType) {
                     $responseBody = $response->getBody();
@@ -1267,7 +1309,7 @@ class DefaultApi
             $httpBody = $_tempBody;
             // \stdClass has no __toString(), so we should encode it manually
             if ($httpBody instanceof \stdClass && $headers['Content-Type'] === 'application/json') {
-                $httpBody = \GuzzleHttp\json_encode($httpBody);
+                $httpBody = $this->jsonEncode($httpBody);
             }
         } elseif (count($formParams) > 0) {
             if ($multipart) {
@@ -1281,10 +1323,10 @@ class DefaultApi
                 // for HTTP post (form)
                 $httpBody = new MultipartStream($multipartContents);
             } elseif ($headers['Content-Type'] === 'application/json') {
-                $httpBody = \GuzzleHttp\json_encode($formParams);
+                $httpBody = $this->jsonEncode($formParams);
             } else {
                 // for HTTP post (form)
-                $httpBody = \GuzzleHttp\Psr7\build_query($formParams);
+                $httpBody = $this->buildQuery($formParams);
             }
         }
 
@@ -1302,7 +1344,7 @@ class DefaultApi
             $headers
         );
 
-        $query = \GuzzleHttp\Psr7\build_query($queryParams);
+        $query = $this->buildQuery($queryParams);
         return new Request(
             'POST',
             $this->config->getHost() . $resourcePath . ($query ? "?{$query}" : ''),
@@ -1317,7 +1359,7 @@ class DefaultApi
      * @throws \RuntimeException on file opening failure
      * @return array of http client options
      */
-    protected function createHttpClientOption()
+    protected function createHttpClientOptions()
     {
         $options = [];
         if ($this->config->getDebug()) {
