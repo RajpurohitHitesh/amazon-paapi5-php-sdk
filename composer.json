@@ -1,64 +1,50 @@
 {
-    "name": "rajpurohithitesh/amazon-paapi5-php-sdk",
-    "description": "Amazon Product Advertising API v5 PHP SDK (Most Advanced SDK)",
-    "type": "library",
-    "require": {
-        "php": "^8.0",
-        "ext-sodium": "*",
-        "ext-openssl": "*",
-        "ext-json": "*",
-        "ext-curl": "*",
-        "guzzlehttp/guzzle": "^7.0",
-        "psr/cache": "^1.0 || ^2.0 || ^3.0",
-        "psr/log": "^1.1 || ^2.0 || ^3.0"
-    },
-    "require-dev": {
-        "phpunit/phpunit": "^9.5",
-        "squizlabs/php_codesniffer": "^3.6",
-        "phpstan/phpstan": "^1.0"
-    },
-    "suggest": {
-        "symfony/cache": "For better caching with Redis/Memcached support"
-    },
-    "autoload": {
-        "psr-4": {
-            "AmazonPaapi5\\": "src/"
-        }
-    },
-    "autoload-dev": {
-        "psr-4": {
-            "AmazonPaapi5\\Tests\\": "tests/"
-        }
-    },
-    "scripts": {
-        "test": "phpunit",
-        "cs": "phpcs --standard=PSR12 src tests",
-        "analyse": "phpstan analyse src tests --level=7",
-        "post-install-cmd": [
-            "@php -r \"echo 'Amazon PA-API5 PHP SDK installed successfully!\\n';\"",
-            "@php -r \"if (extension_loaded('sodium')) { echo 'Sodium extension detected - Using enhanced encryption\\n'; } else { echo 'Warning: Sodium extension not available, using OpenSSL fallback\\n'; }\"",
-            "@php -r \"if (!extension_loaded('openssl')) { echo 'Error: OpenSSL extension is required\\n'; exit(1); }\""
-        ]
-    },
+    "name": "amzn/paapi5-php-sdk",
+    "version": "1.1.0",
+    "description": "ProductAdvertisingAPI 5.0 PHP SDK",
+    "keywords": [
+        "amazon",
+        "pa-api",
+        "paapi",
+        "paapi5.0",
+        "paapi5",
+        "paapi5-php-sdk",
+        "getitems",
+        "searchitems",
+        "getvariations",
+        "getbrowsenodes",
+        "ProductAdvertisingAPI"
+    ],
+    "homepage": "https://webservices.amazon.com/paapi5/documentation/index.html",
     "license": "Apache-2.0",
     "authors": [
         {
-            "name": "Hitesh Rajpurohit"
+            "name" : "Product Advertising API Team",
+            "homepage": "https://webservices.amazon.com/paapi5/documentation/index.html"
         }
     ],
-    "minimum-stability": "stable",
-    "config": {
-        "sort-packages": true,
-        "optimize-autoloader": true,
-        "platform-check": true
+    "require": {
+        "php": ">=5.5",
+        "ext-curl": "*",
+        "ext-json": "*",
+        "ext-mbstring": "*",
+        "guzzlehttp/guzzle": "^6.2"
     },
-    "keywords": [
-        "amazon",
-        "paapi5",
-        "product-advertising-api",
-        "affiliate",
-        "ecommerce",
-        "openssl-fallback",
-        "sodium-encryption"
-    ]
+    "require-dev": {
+        "phpunit/phpunit": "^4.8",
+        "squizlabs/php_codesniffer": "~2.6",
+        "friendsofphp/php-cs-fixer": "~2.12"
+    },
+    "scripts": {
+        "test": "vendor/bin/phpunit",
+        "phpcs": "vendor/bin/phpcs --standard=phpcs.xml -n SampleGetItemsApi.php SampleSearchItemsApi.php SampleGetVariationsApi.php SampleGetBrowseNodesApi.php src/com/amazon/paapi5/v1/auth/SignHelper.php",
+        "phpcbf": "vendor/bin/phpcbf --standard=phpcs.xml -n SampleGetItemsApi.php SampleSearchItemsApi.php SampleGetVariationsApi.php SampleGetBrowseNodesApi.php src/com/amazon/paapi5/v1/auth/SignHelper.php",
+        "php-cs-fixer": "vendor/friendsofphp/php-cs-fixer/php-cs-fixer fix --allow-risky=yes --using-cache=no --config=.php_cs SampleGetItemsApi.php SampleSearchItemsApi.php SampleGetVariationsApi.php SampleGetBrowseNodesApi.php src/com/amazon/paapi5/v1/auth/SignHelper.php"
+    },
+    "autoload": {
+        "psr-4": { "Amazon\\ProductAdvertisingAPI\\v1\\" : "src/" }
+    },
+    "autoload-dev": {
+        "psr-4": { "Amazon\\ProductAdvertisingAPI\\v1\\" : "test/" }
+    }
 }
