@@ -12,6 +12,21 @@
 
 This repository provides a lightweight, modern, and feature-rich PHP SDK for the Amazon Product Advertising API 5.0 (PAAPI5). It is designed to simplify the integration of Amazon product data into your PHP applications, offering robust error handling, caching, and support for all PAAPI5 operations.
 
+## ⚠️ IMPORTANT: Migrate to OffersV2
+
+**Offers V1 is being deprecated!** Amazon PA-API will eventually remove the old Offers API. All new features are only being added to OffersV2.
+
+**➡️ [Read Migration Guide: Offers V1 → OffersV2](MIGRATION_OFFERS_V1_TO_V2.md)**
+
+**Use OffersV2 for all new projects:**
+- ✅ Better reliability and data quality
+- ✅ Full deal information (Lightning Deals, Prime Exclusive)
+- ✅ Enhanced pricing with savings details
+- ✅ Merchant ID support
+- ✅ All future features
+
+See [OffersV2 Documentation](OFFERSV2_README.md) for complete details.
+
 ## Table of Contents
 
 1.  [Introduction](#introduction)
