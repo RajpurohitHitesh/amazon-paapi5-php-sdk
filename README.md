@@ -143,11 +143,11 @@ This SDK is packed with features to make your development experience smooth and 
 *   **Required Extensions:**
     *   `curl` (usually enabled by default)
     *   `json` (usually enabled by default)
-    *   `openssl` (for encryption fallback, usually enabled by default)
-    *   `sodium` (recommended for optimal security and performance)
+    *   `openssl` (required for encryption fallback)
+    *   `sodium` (required - for optimal security and performance)
 *   **Encryption Method Priority:**
-    1. **Sodium** (preferred) - If extension is available
-    2. **OpenSSL** (fallback) - If Sodium is not available
+    1. **Sodium** (preferred) - Primary encryption method
+    2. **OpenSSL** (fallback) - Used when Sodium unavailable
     3. **Installation fails** - If neither is available
 *   **Composer:** For managing dependencies.
 *   **GuzzleHttp:** `^7.0` (automatically installed as a dependency).
@@ -393,9 +393,9 @@ $operation = new SearchItems($searchRequest);
 try {
     $response = $client->sendAsync($operation)->wait(); // Synchronous execution
 
-    if ($response && $response->getSearchResult() && $response->getSearchResult()->getItems()) {
+    if ($response && $response->getItems()) {
         echo "<h3>Search Results for 'PHP Programming Laptop':</h3>";
-        foreach ($response->getSearchResult()->getItems() as $item) {
+        foreach ($response->getItems() as $item) {
             echo "<h4>" . ($item->getItemInfo()->getTitle()->getDisplayValue() ?? 'N/A') . "</h4>";
             echo "ASIN: " . $item->getAsin() . "<br>";
             echo "Price: " . ($item->getOffers()->getListings()[0]->getPrice()->getDisplayAmount() ?? 'N/A') . "<br>";
@@ -412,12 +412,6 @@ try {
         }
     } else {
         echo "No items found or error in response structure.<br>";
-        if ($response && $response->getErrors()) {
-            // Handle API errors
-            foreach ($response->getErrors() as $error) {
-                echo "API Error Code: " . $error->getCode() . " - Message: " . $error->getMessage() . "<br>";
-            }
-        }
     }
 
 } catch (\AmazonPaapi5\Exceptions\ApiException $e) {
@@ -470,9 +464,9 @@ $operation = new GetItems($getItemsRequest);
 try {
     $response = $client->sendAsync($operation)->wait();
 
-    if ($response && $response->getItemsResult() && $response->getItemsResult()->getItems()) {
+    if ($response && $response->getItems()) {
         echo "<h3>Product Details:</h3>";
-        foreach ($response->getItemsResult()->getItems() as $item) {
+        foreach ($response->getItems() as $item) {
             echo "<h4>" . ($item->getItemInfo()->getTitle()->getDisplayValue() ?? 'N/A') . "</h4>";
             echo "ASIN: " . $item->getAsin() . "<br>";
             echo "Price: " . ($item->getOffers()->getListings()[0]->getPrice()->getDisplayAmount() ?? 'N/A') . "<br>";
@@ -482,11 +476,6 @@ try {
         }
     } else {
         echo "No items found or error in response structure for the given ASINs.<br>";
-         if ($response && $response->getErrors()) {
-            foreach ($response->getErrors() as $error) {
-                echo "API Error Code: " . $error->getCode() . " - Message: " . $error->getMessage() . "<br>";
-            }
-        }
     }
 
 } catch (\AmazonPaapi5\Exceptions\ApiException $e) {
@@ -537,9 +526,9 @@ $operation = new GetVariations($getVariationsRequest);
 try {
     $response = $client->sendAsync($operation)->wait();
 
-    if ($response && $response->getVariationsResult() && $response->getVariationsResult()->getItems()) {
+    if ($response && $response->getItems()) {
         echo "<h3>Product Variations for ASIN: $productAsin</h3>";
-        foreach ($response->getVariationsResult()->getItems() as $variationItem) {
+        foreach ($response->getItems() as $variationItem) {
             echo "<h4>" . ($variationItem->getItemInfo()->getTitle()->getDisplayValue() ?? 'N/A') . "</h4>";
             echo "Variation ASIN: " . $variationItem->getAsin() . "<br>";
             echo "Price: " . ($variationItem->getOffers()->getListings()[0]->getPrice()->getDisplayAmount() ?? 'N/A') . "<br>";
@@ -556,11 +545,6 @@ try {
         }
     } else {
         echo "No variations found or error in response structure for ASIN: $productAsin.<br>";
-        if ($response && $response->getErrors()) {
-            foreach ($response->getErrors() as $error) {
-                echo "API Error Code: " . $error->getCode() . " - Message: " . $error->getMessage() . "<br>";
-            }
-        }
     }
 
 } catch (\AmazonPaapi5\Exceptions\ApiException $e) {
@@ -604,9 +588,9 @@ $operation = new GetBrowseNodes($getBrowseNodesRequest);
 try {
     $response = $client->sendAsync($operation)->wait();
 
-    if ($response && $response->getBrowseNodesResult() && $response->getBrowseNodesResult()->getBrowseNodes()) {
+    if ($response && $response->getBrowseNodes()) {
         echo "<h3>Browse Node Details:</h3>";
-        foreach ($response->getBrowseNodesResult()->getBrowseNodes() as $node) {
+        foreach ($response->getBrowseNodes() as $node) {
             echo "<h4>Node: " . ($node->getDisplayName() ?? 'N/A') . " (ID: " . $node->getId() . ")</h4>";
             echo "Is Root: " . ($node->getIsRoot() ? 'Yes' : 'No') . "<br>";
             echo "Context Free Name: " . ($node->getContextFreeName() ?? 'N/A') . "<br>";
@@ -626,11 +610,6 @@ try {
         }
     } else {
         echo "No browse node information found or error in response structure.<br>";
-        if ($response && $response->getErrors()) {
-            foreach ($response->getErrors() as $error) {
-                echo "API Error Code: " . $error->getCode() . " - Message: " . $error->getMessage() . "<br>";
-            }
-        }
     }
 
 } catch (\AmazonPaapi5\Exceptions\ApiException $e) {
@@ -659,8 +638,8 @@ $promise1->then(
     function ($response) { // onFulfilled
         echo "SearchItems call 1 completed successfully!\n";
         // Process $response for searchOperation1
-        if ($response && $response->getSearchResult() && $response->getSearchResult()->getItems()) {
-            foreach ($response->getSearchResult()->getItems() as $item) {
+        if ($response && $response->getItems()) {
+            foreach ($response->getItems() as $item) {
                 // ... process item
             }
         }
@@ -675,8 +654,8 @@ $promise2->then(
     function ($response) { // onFulfilled
         echo "GetItems call 2 completed successfully!\n";
         // Process $response for getItemsOperation2
-        if ($response && $response->getItemsResult() && $response->getItemsResult()->getItems()) {
-            foreach ($response->getItemsResult()->getItems() as $item) {
+        if ($response && $response->getItems()) {
+            foreach ($response->getItems() as $item) {
                 // ... process item
             }
         }
