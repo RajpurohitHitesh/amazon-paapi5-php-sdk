@@ -35,7 +35,7 @@
         "cs": "phpcs --standard=PSR12 src tests",
         "analyse": "phpstan analyse src tests --level=7",
         "post-install-cmd": [
-            "@php -r \"echo 'Amazon PA-API5 PHP SDK installed successfully!\\n';\"",
+            "@php -r \"echo 'Amazon PA-API5 PHP SDK v1.1.1 installed successfully!\\n';\"",
             "@php -r \"if (extension_loaded('sodium')) { echo 'Sodium extension detected - Using enhanced encryption\\n'; } else { echo 'Warning: Sodium extension not available, using OpenSSL fallback\\n'; }\"",
             "@php -r \"if (!extension_loaded('openssl')) { echo 'Error: OpenSSL extension is required\\n'; exit(1); }\""
         ]
