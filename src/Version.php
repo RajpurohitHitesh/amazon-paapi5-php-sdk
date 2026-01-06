@@ -12,7 +12,7 @@ class Version
     /**
      * Current SDK version
      */
-    public const VERSION = '1.1.1';
+    public const VERSION = '1.1.2';
 
     /**
      * Release date
