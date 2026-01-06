@@ -29,7 +29,7 @@ class CacheItem implements CacheItemInterface
         return $this->key;
     }
 
-    public function get(): mixed
+    public function get()
     {
         return $this->value;
     }
@@ -39,20 +39,20 @@ class CacheItem implements CacheItemInterface
         return $this->hit;
     }
 
-    public function set(mixed $value): static
+    public function set($value): static
     {
         $this->value = $value;
         $this->hit = true;
         return $this;
     }
 
-    public function expiresAt(?\DateTimeInterface $expiration): static
+    public function expiresAt($expiration): static
     {
         $this->expiry = $expiration;
         return $this;
     }
 
-    public function expiresAfter(int|\DateInterval|null $time): static
+    public function expiresAfter($time): static
     {
         if ($time === null) {
             $this->expiry = null;
