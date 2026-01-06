@@ -29,7 +29,7 @@ class CacheItem implements CacheItemInterface
         return $this->key;
     }
 
-    public function get()
+    public function get(): mixed
     {
         return $this->value;
     }
